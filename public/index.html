@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>꼬리치레 - 자동 문자 발송</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 헤더 -->
+    <header>
+      <h1>꼬리치레</h1>
+      <p class="subtitle">자동 문자 발송 시스템</p>
+    </header>
+
+    <!-- 핸드폰 연결 상태 -->
+    <div class="phone-status" id="phone-status">
+      <span class="status-dot disconnected"></span>
+      <span id="phone-status-text">핸드폰 앱 연결 대기중...</span>
+    </div>
+
+    <!-- 오늘 통계 -->
+    <div class="stats-bar">
+      <div class="stat">
+        <span class="stat-num" id="stat-total">0</span>
+        <span class="stat-label">오늘 등록</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num" id="stat-pending">0</span>
+        <span class="stat-label">대기중</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num sent" id="stat-sent">0</span>
+        <span class="stat-label">발송완료</span>
+      </div>
+      <div class="stat">
+        <span class="stat-num failed" id="stat-failed">0</span>
+        <span class="stat-label">실패</span>
+      </div>
+    </div>
+
+    <!-- 탭 네비게이션 -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="register">주문 등록</button>
+      <button class="tab" data-tab="history">발송 내역</button>
+      <button class="tab" data-tab="settings">설정</button>
+    </nav>
+
+    <!-- 주문 등록 탭 -->
+    <section id="tab-register" class="tab-content active">
+      <div class="card">
+        <h2>고객 번호 등록</h2>
+        <p class="hint">배달의민족 주문 고객 번호를 입력하세요</p>
+        <form id="order-form">
+          <input
+            type="tel"
+            id="phone-input"
+            placeholder="010-1234-5678 또는 050-xxxx-xxxx"
+            autocomplete="off"
+            required
+          >
+          <button type="submit" class="btn-primary">
+            문자 예약
+          </button>
+        </form>
+        <div id="register-result" class="result hidden"></div>
+      </div>
+
+      <!-- 최근 등록 -->
+      <div class="card">
+        <h2>최근 등록</h2>
+        <div id="recent-list" class="message-list">
+          <p class="empty">등록된 내역이 없습니다</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 발송 내역 탭 -->
+    <section id="tab-history" class="tab-content">
+      <div class="card">
+        <h2>발송 내역</h2>
+        <div id="history-list" class="message-list">
+          <p class="empty">내역이 없습니다</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 설정 탭 -->
+    <section id="tab-settings" class="tab-content">
+      <div class="card">
+        <h2>문자 메시지 템플릿</h2>
+        <textarea id="template-input" rows="5" placeholder="고객에게 보낼 메시지를 작성하세요"></textarea>
+
+        <h2>발송 지연 시간</h2>
+        <div class="delay-input">
+          <input type="number" id="delay-input" min="1" max="1440" value="120">
+          <span>분 후 발송</span>
+        </div>
+
+        <button id="save-settings" class="btn-primary">설정 저장</button>
+        <div id="settings-result" class="result hidden"></div>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
