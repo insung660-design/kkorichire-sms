@@ -169,13 +169,19 @@ app.get('/auth/success', (req, res) => {
     @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}</style></head><body>
     <div class="box"><div class="spinner"></div><p>로그인 중...</p></div>
     <script>
-      try {
-        localStorage.setItem('token','${token}');
-        localStorage.setItem('user', JSON.stringify({name:decodeURIComponent('${encodeURIComponent(name||'')}'),email:decodeURIComponent('${encodeURIComponent(email||'')}')}));
-        setTimeout(function(){ window.location.replace('/'); }, 500);
-      } catch(e) {
-        document.body.innerHTML = '<p>로그인 처리 중 오류: '+e.message+'</p><a href="/">다시 시도</a>';
-      }
+      localStorage.setItem('token','${token}');
+      localStorage.setItem('user', JSON.stringify({name:decodeURIComponent('${encodeURIComponent(name||'')}'),email:decodeURIComponent('${encodeURIComponent(email||'')}')}));
+      // 토큰 검증 후 이동
+      fetch('/auth/me', { headers: { 'Authorization': 'Bearer ${token}' } })
+        .then(function(r){ return r.json(); })
+        .then(function(u){
+          localStorage.setItem('user', JSON.stringify(u));
+          window.location.replace('/');
+        })
+        .catch(function(){
+          // 검증 실패해도 토큰은 유지하고 이동
+          window.location.replace('/');
+        });
     </script></body></html>`);
 });
 

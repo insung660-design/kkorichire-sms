@@ -154,43 +154,7 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
-// ─── 주문 등록 ───
-document.getElementById('order-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const phoneInput = document.getElementById('phone-input');
-  const result = document.getElementById('register-result');
-  const phone = phoneInput.value.trim();
-  if (!phone) return;
-
-  try {
-    const res = await api('/api/order', {
-      method: 'POST',
-      body: JSON.stringify({ phone })
-    });
-    const data = await res.json();
-
-    if (data.success) {
-      result.className = 'result success';
-      result.textContent = `${data.phone} 예약 완료! (${formatTime(data.scheduled_at)} 발송)`;
-      result.classList.remove('hidden');
-      phoneInput.value = '';
-      phoneInput.focus();
-      loadStats();
-      loadRecentMessages();
-    } else {
-      result.className = 'result error';
-      result.textContent = data.error;
-      result.classList.remove('hidden');
-    }
-  } catch (err) {
-    if (err.message !== '인증 만료' && err.message !== '체험 만료') {
-      result.className = 'result error';
-      result.textContent = '서버 연결 실패';
-      result.classList.remove('hidden');
-    }
-  }
-  setTimeout(() => result.classList.add('hidden'), 3000);
-});
+// ─── 주문 등록 (앱에서만 사용, 웹에서는 비활성) ───
 
 // ─── 설정 저장 ───
 document.getElementById('save-settings').addEventListener('click', async () => {
@@ -314,5 +278,5 @@ function formatTime(dateStr) {
 checkAuth();
 
 setInterval(() => {
-  if (getToken()) { loadStats(); loadPhoneStatus(); }
+  if (getToken()) { loadStats(); }
 }, 30000);
