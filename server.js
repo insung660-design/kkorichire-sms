@@ -147,50 +147,72 @@ app.post('/auth/simple', (req, res) => {
 //  소셜 로그인 (앱에서 브라우저로 열기)
 // ═══════════════════════════════════════
 
-// 구글 로그인 시작 (앱 → 브라우저)
+// 로그인 성공 후 리다이렉트 헬퍼
+function loginRedirect(res, user, jwtToken, redirect) {
+  if (redirect === 'web') {
+    // 웹: 토큰을 페이지에서 저장하도록 리다이렉트
+    res.redirect(`/auth/success?token=${jwtToken}&name=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email)}`);
+  } else {
+    // 앱: 딥링크로 리다이렉트
+    res.redirect(`reviewjipsa://auth/auth/app/callback?token=${jwtToken}&name=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email)}`);
+  }
+}
+
+// 로그인 성공 페이지 (웹용)
+app.get('/auth/success', (req, res) => {
+  const { token, name, email } = req.query;
+  res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>로그인 성공</title></head><body>
+    <script>
+      localStorage.setItem('token','${token}');
+      localStorage.setItem('user',JSON.stringify({name:'${(name||'').replace(/'/g,"\\'")}',email:'${(email||'').replace(/'/g,"\\'")}'}));
+      window.location.href='/';
+    </script></body></html>`);
+});
+
+// 구글 로그인
 app.get('/auth/google/start', (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) return res.send('구글 로그인 설정이 필요합니다.');
-  const redirectUri = encodeURIComponent(`https://kkorichire-sms.onrender.com/auth/google/app-callback`);
-  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=email%20profile`;
+  const redirect = req.query.redirect || 'app';
+  const redirectUri = encodeURIComponent('https://kkorichire-sms.onrender.com/auth/google/app-callback');
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=email%20profile&state=${redirect}`;
   res.redirect(url);
 });
 
 app.get('/auth/google/app-callback', async (req, res) => {
   try {
-    const { code } = req.query;
-    // code를 토큰으로 교환
+    const { code, state } = req.query;
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `code=${code}&client_id=${process.env.GOOGLE_CLIENT_ID}&client_secret=${process.env.GOOGLE_CLIENT_SECRET}&redirect_uri=https://kkorichire-sms.onrender.com/auth/google/app-callback&grant_type=authorization_code`
     });
     const tokenData = await tokenRes.json();
-    // 사용자 정보 가져오기
     const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
     });
     const userData = await userRes.json();
     const user = findOrCreateUser(userData.email, userData.name || userData.email, 'google', userData.id);
     const jwtToken = generateToken(user);
-    res.redirect(`reviewjipsa://auth/auth/app/callback?token=${jwtToken}&name=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email)}`);
+    loginRedirect(res, user, jwtToken, state || 'app');
   } catch (err) {
     res.send('구글 로그인 실패: ' + err.message);
   }
 });
 
-// 카카오 로그인 시작 (앱 → 브라우저)
+// 카카오 로그인
 app.get('/auth/kakao/start', (req, res) => {
   const clientId = process.env.KAKAO_CLIENT_ID;
   if (!clientId) return res.send('카카오 로그인 설정이 필요합니다.');
-  const redirectUri = encodeURIComponent(`https://kkorichire-sms.onrender.com/auth/kakao/app-callback`);
-  const url = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code`;
+  const redirect = req.query.redirect || 'app';
+  const redirectUri = encodeURIComponent('https://kkorichire-sms.onrender.com/auth/kakao/app-callback');
+  const url = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&state=${redirect}`;
   res.redirect(url);
 });
 
 app.get('/auth/kakao/app-callback', async (req, res) => {
   try {
-    const { code } = req.query;
+    const { code, state } = req.query;
     const tokenRes = await fetch('https://kauth.kakao.com/oauth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -205,19 +227,20 @@ app.get('/auth/kakao/app-callback', async (req, res) => {
     const name = userData.kakao_account?.profile?.nickname || '카카오 사용자';
     const user = findOrCreateUser(email, name, 'kakao', String(userData.id));
     const jwtToken = generateToken(user);
-    res.redirect(`reviewjipsa://auth/auth/app/callback?token=${jwtToken}&name=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email)}`);
+    loginRedirect(res, user, jwtToken, state || 'app');
   } catch (err) {
     res.send('카카오 로그인 실패: ' + err.message);
   }
 });
 
-// 네이버 로그인 시작 (앱 → 브라우저)
+// 네이버 로그인
 app.get('/auth/naver/start', (req, res) => {
   const clientId = process.env.NAVER_CLIENT_ID;
   if (!clientId) return res.send('네이버 로그인 설정이 필요합니다.');
-  const state = Math.random().toString(36).substring(2);
-  const redirectUri = encodeURIComponent(`https://kkorichire-sms.onrender.com/auth/naver/app-callback`);
-  const url = `https://nid.naver.com/oauth2.0/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&state=${state}`;
+  const redirect = req.query.redirect || 'app';
+  const stateData = redirect; // state에 redirect 정보 전달
+  const redirectUri = encodeURIComponent('https://kkorichire-sms.onrender.com/auth/naver/app-callback');
+  const url = `https://nid.naver.com/oauth2.0/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&state=${stateData}`;
   res.redirect(url);
 });
 
@@ -234,7 +257,7 @@ app.get('/auth/naver/app-callback', async (req, res) => {
     const name = userData.response.name || userData.response.nickname || '네이버 사용자';
     const user = findOrCreateUser(email, name, 'naver', userData.response.id);
     const jwtToken = generateToken(user);
-    res.redirect(`reviewjipsa://auth/auth/app/callback?token=${jwtToken}&name=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email)}`);
+    loginRedirect(res, user, jwtToken, state || 'app');
   } catch (err) {
     res.send('네이버 로그인 실패: ' + err.message);
   }

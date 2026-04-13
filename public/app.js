@@ -96,49 +96,17 @@ async function checkAuth() {
   }
 }
 
-// ─── 소셜 로그인 ───
-async function loginGoogle() {
-  // 구글 OAuth - 팝업 방식
-  const res = await fetch('/auth/config');
-  const config = await res.json();
-
-  if (!config.google_client_id) {
-    alert('구글 로그인 설정이 필요합니다.\n관리자에게 문의하세요.');
-    return;
-  }
-
-  const redirectUri = encodeURIComponent(window.location.origin + '/auth/google/callback.html');
-  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${config.google_client_id}&redirect_uri=${redirectUri}&response_type=token&scope=email%20profile`;
-  const popup = window.open(url, 'google-login', 'width=500,height=600');
+// ─── 소셜 로그인 (서버에서 처리) ───
+function loginGoogle() {
+  window.location.href = '/auth/google/start?redirect=web';
 }
 
-async function loginKakao() {
-  const res = await fetch('/auth/config');
-  const config = await res.json();
-
-  if (!config.kakao_client_id) {
-    alert('카카오 로그인 설정이 필요합니다.\n관리자에게 문의하세요.');
-    return;
-  }
-
-  const redirectUri = encodeURIComponent(window.location.origin + '/auth/kakao/callback.html');
-  const url = `https://kauth.kakao.com/oauth/authorize?client_id=${config.kakao_client_id}&redirect_uri=${redirectUri}&response_type=code`;
-  window.location.href = url;
+function loginKakao() {
+  window.location.href = '/auth/kakao/start?redirect=web';
 }
 
-async function loginNaver() {
-  const res = await fetch('/auth/config');
-  const config = await res.json();
-
-  if (!config.naver_client_id) {
-    alert('네이버 로그인 설정이 필요합니다.\n관리자에게 문의하세요.');
-    return;
-  }
-
-  const state = Math.random().toString(36).substring(2);
-  const redirectUri = encodeURIComponent(window.location.origin + '/auth/naver/callback.html');
-  const url = `https://nid.naver.com/oauth2.0/authorize?client_id=${config.naver_client_id}&redirect_uri=${redirectUri}&response_type=token&state=${state}`;
-  window.location.href = url;
+function loginNaver() {
+  window.location.href = '/auth/naver/start?redirect=web';
 }
 
 // 소셜 로그인 콜백 처리 (팝업/리다이렉트에서 호출)
