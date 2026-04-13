@@ -128,6 +128,21 @@ app.post('/auth/naver', async (req, res) => {
   }
 });
 
+// 간편 로그인 (이메일로 자동 가입/로그인 — 앱용)
+app.post('/auth/simple', (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: '이메일을 입력해주세요' });
+
+  const user = findOrCreateUser(email, email.split('@')[0], 'email', email);
+  const jwtToken = generateToken(user);
+
+  res.json({
+    success: true,
+    token: jwtToken,
+    user: { id: user.id, email: user.email, name: user.name, trial_expires_at: user.trial_expires_at }
+  });
+});
+
 // 토큰으로 내 정보 조회
 app.get('/auth/me', authMiddleware, (req, res) => {
   const user = req.user;

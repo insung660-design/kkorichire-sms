@@ -2,14 +2,27 @@ package com.kkorichire.sms
 
 import android.content.Intent
 import android.os.Bundle
-import android.webkit.*
+import android.widget.Button
+import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 class LoginActivity : AppCompatActivity() {
 
-    private lateinit var webView: WebView
+    private lateinit var serverUrlInput: EditText
+    private lateinit var emailInput: EditText
+    private lateinit var loginButton: Button
+
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .build()
 
     companion object {
         const val PREFS_NAME = "kkorichire_prefs"
@@ -24,87 +37,94 @@ class LoginActivity : AppCompatActivity() {
         // 이미 로그인되어 있으면 메인으로
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val token = prefs.getString(KEY_TOKEN, "")
-        if (!token.isNullOrEmpty()) {
+        val serverUrl = prefs.getString(MainActivity.KEY_SERVER_URL, "")
+        if (!token.isNullOrEmpty() && !serverUrl.isNullOrEmpty()) {
             goToMain()
             return
         }
 
         setContentView(R.layout.activity_login)
-        webView = findViewById(R.id.loginWebView)
 
-        setupWebView()
-        loadLoginPage()
-    }
+        serverUrlInput = findViewById(R.id.loginServerUrl)
+        emailInput = findViewById(R.id.loginEmail)
+        loginButton = findViewById(R.id.loginButton)
 
-    private fun setupWebView() {
-        webView.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            setSupportMultipleWindows(false)
+        // 저장된 서버 URL 복원
+        if (!serverUrl.isNullOrEmpty()) {
+            serverUrlInput.setText(serverUrl)
         }
 
-        webView.addJavascriptInterface(object {
-            @JavascriptInterface
-            fun onLoginSuccess(token: String, userName: String, userEmail: String) {
-                runOnUiThread {
-                    // 토큰 저장
-                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                        .edit()
-                        .putString(KEY_TOKEN, token)
-                        .putString(KEY_USER_NAME, userName)
-                        .putString(KEY_USER_EMAIL, userEmail)
-                        .apply()
-
-                    Toast.makeText(this@LoginActivity, "로그인 성공!", Toast.LENGTH_SHORT).show()
-                    goToMain()
-                }
-            }
-        }, "Android")
-
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                return false
-            }
-        }
+        loginButton.setOnClickListener { login() }
     }
 
-    private fun loadLoginPage() {
-        val serverUrl = getSharedPreferences(MainActivity.PREFS_NAME, MODE_PRIVATE)
-            .getString(MainActivity.KEY_SERVER_URL, "") ?: ""
+    private fun login() {
+        val serverUrl = serverUrlInput.text.toString().trim()
+        val email = emailInput.text.toString().trim()
 
         if (serverUrl.isEmpty()) {
-            // 서버 주소 미설정 → 기본 로그인 페이지 표시
-            webView.loadData(getOfflineLoginHtml(), "text/html", "UTF-8")
-        } else {
-            webView.loadUrl("$serverUrl/login.html")
+            Toast.makeText(this, "서버 주소를 입력해주세요", Toast.LENGTH_SHORT).show()
+            return
         }
-    }
 
-    private fun getOfflineLoginHtml(): String {
-        return """
-        <!DOCTYPE html>
-        <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-        <style>
-            body{font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;
-            min-height:100vh;margin:0;background:#f5f5f5;color:#333}
-            h1{color:#2d6a4f;font-size:28px}
-            p{color:#888;font-size:14px}
-            input{width:80%;max-width:300px;padding:14px;border:2px solid #ddd;border-radius:10px;font-size:16px;margin:8px 0}
-            button{width:80%;max-width:300px;padding:14px;border:none;border-radius:10px;background:#2d6a4f;color:#fff;
-            font-size:16px;font-weight:bold;cursor:pointer;margin-top:12px}
-        </style></head><body>
-            <h1>리뷰집사</h1>
-            <p>서버 주소를 먼저 설정해주세요</p>
-            <input id="url" type="url" placeholder="https://kkorichire-sms.onrender.com" />
-            <button onclick="save()">서버 연결</button>
-            <script>
-                function save(){
-                    var url=document.getElementById('url').value.trim();
-                    if(url) window.location.href=url+'/login.html?app=true';
+        if (email.isEmpty()) {
+            Toast.makeText(this, "이메일을 입력해주세요", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        loginButton.isEnabled = false
+        loginButton.text = "연결 중..."
+
+        // 간편 로그인: 이메일로 자동 가입/로그인
+        val json = JSONObject().apply {
+            put("email", email)
+        }
+
+        val request = Request.Builder()
+            .url("$serverUrl/auth/simple")
+            .post(json.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread {
+                    loginButton.isEnabled = true
+                    loginButton.text = "시작하기"
+                    Toast.makeText(this@LoginActivity, "서버 연결 실패. 주소를 확인해주세요.", Toast.LENGTH_LONG).show()
                 }
-            </script>
-        </body></html>
-        """.trimIndent()
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string() ?: ""
+                runOnUiThread {
+                    try {
+                        val data = JSONObject(body)
+                        if (data.optBoolean("success")) {
+                            val token = data.getString("token")
+                            val user = data.getJSONObject("user")
+
+                            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                                .edit()
+                                .putString(KEY_TOKEN, token)
+                                .putString(KEY_USER_NAME, user.optString("name", email))
+                                .putString(KEY_USER_EMAIL, user.optString("email", email))
+                                .putString(MainActivity.KEY_SERVER_URL, serverUrl)
+                                .apply()
+
+                            Toast.makeText(this@LoginActivity, "로그인 성공!", Toast.LENGTH_SHORT).show()
+                            goToMain()
+                        } else {
+                            loginButton.isEnabled = true
+                            loginButton.text = "시작하기"
+                            Toast.makeText(this@LoginActivity, data.optString("error", "로그인 실패"), Toast.LENGTH_LONG).show()
+                        }
+                    } catch (e: Exception) {
+                        loginButton.isEnabled = true
+                        loginButton.text = "시작하기"
+                        Toast.makeText(this@LoginActivity, "서버 응답 오류", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        })
     }
 
     private fun goToMain() {
