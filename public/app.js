@@ -86,13 +86,18 @@ async function checkAuth() {
       } else {
         showExpired();
       }
-    } else {
+    } else if (res.status === 401) {
       clearToken();
       showLogin();
+    } else {
+      // 서버 오류 시 토큰 유지하고 메인 표시 시도
+      const user = getUser();
+      if (user) { showMain(); } else { showLogin(); }
     }
   } catch {
-    clearToken();
-    showLogin();
+    // 네트워크 오류 시 토큰 삭제하지 않음
+    const user = getUser();
+    if (user) { showMain(); } else { showLogin(); }
   }
 }
 
