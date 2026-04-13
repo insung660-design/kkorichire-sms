@@ -148,12 +148,14 @@ app.post('/auth/simple', (req, res) => {
 // ═══════════════════════════════════════
 
 // 로그인 성공 후 리다이렉트 헬퍼
-function loginRedirect(res, user, jwtToken, redirect) {
-  if (redirect === 'web') {
-    // 웹: 토큰을 페이지에서 저장하도록 리다이렉트
+function loginRedirect(req, res, user, jwtToken, stateParam) {
+  // state가 'web'이거나, 브라우저 User-Agent면 웹으로 처리
+  const isWeb = stateParam === 'web' ||
+    (!stateParam && req.headers['user-agent'] && !req.headers['user-agent'].includes('okhttp'));
+
+  if (isWeb) {
     res.redirect(`/auth/success?token=${jwtToken}&name=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email)}`);
   } else {
-    // 앱: 딥링크로 리다이렉트
     res.redirect(`reviewjipsa://auth/auth/app/callback?token=${jwtToken}&name=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email)}`);
   }
 }
@@ -194,7 +196,7 @@ app.get('/auth/google/app-callback', async (req, res) => {
     const userData = await userRes.json();
     const user = findOrCreateUser(userData.email, userData.name || userData.email, 'google', userData.id);
     const jwtToken = generateToken(user);
-    loginRedirect(res, user, jwtToken, state || 'app');
+    loginRedirect(req, res, user, jwtToken, state);
   } catch (err) {
     res.send('구글 로그인 실패: ' + err.message);
   }
@@ -227,7 +229,7 @@ app.get('/auth/kakao/app-callback', async (req, res) => {
     const name = userData.kakao_account?.profile?.nickname || '카카오 사용자';
     const user = findOrCreateUser(email, name, 'kakao', String(userData.id));
     const jwtToken = generateToken(user);
-    loginRedirect(res, user, jwtToken, state || 'app');
+    loginRedirect(req, res, user, jwtToken, state);
   } catch (err) {
     res.send('카카오 로그인 실패: ' + err.message);
   }
@@ -257,7 +259,7 @@ app.get('/auth/naver/app-callback', async (req, res) => {
     const name = userData.response.name || userData.response.nickname || '네이버 사용자';
     const user = findOrCreateUser(email, name, 'naver', userData.response.id);
     const jwtToken = generateToken(user);
-    loginRedirect(res, user, jwtToken, state || 'app');
+    loginRedirect(req, res, user, jwtToken, state);
   } catch (err) {
     res.send('네이버 로그인 실패: ' + err.message);
   }
