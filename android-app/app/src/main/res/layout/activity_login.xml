@@ -31,54 +31,66 @@
             android:gravity="center"
             android:layout_marginBottom="48dp" />
 
-        <!-- 서버 주소 -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="서버 주소"
-            android:textSize="14sp"
-            android:textColor="#555555"
-            android:textStyle="bold"
-            android:layout_marginBottom="8dp" />
-
-        <EditText
-            android:id="@+id/loginServerUrl"
+        <!-- 구글 로그인 -->
+        <Button
+            android:id="@+id/btnGoogle"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:hint="https://kkorichire-sms.onrender.com"
-            android:inputType="textUri"
-            android:textSize="14sp"
-            android:padding="14dp"
-            android:background="@drawable/input_background"
+            android:text="Google 로그인"
+            android:textSize="15sp"
+            android:textColor="#333333"
+            android:backgroundTint="#FFFFFF"
+            android:layout_marginBottom="10dp" />
+
+        <!-- 카카오 로그인 -->
+        <Button
+            android:id="@+id/btnKakao"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="카카오 로그인"
+            android:textSize="15sp"
+            android:textColor="#3C1E1E"
+            android:backgroundTint="#FEE500"
+            android:layout_marginBottom="10dp" />
+
+        <!-- 네이버 로그인 -->
+        <Button
+            android:id="@+id/btnNaver"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="네이버 로그인"
+            android:textSize="15sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#03C75A"
             android:layout_marginBottom="24dp" />
 
-        <!-- 이메일 -->
+        <!-- 구분선 -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="이메일"
-            android:textSize="14sp"
-            android:textColor="#555555"
-            android:textStyle="bold"
-            android:layout_marginBottom="8dp" />
+            android:text="또는"
+            android:textSize="13sp"
+            android:textColor="#AAAAAA"
+            android:gravity="center"
+            android:layout_marginBottom="16dp" />
 
+        <!-- 이메일 간편 로그인 -->
         <EditText
             android:id="@+id/loginEmail"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:hint="example@gmail.com"
+            android:hint="이메일로 시작하기"
             android:inputType="textEmailAddress"
-            android:textSize="14sp"
+            android:textSize="15sp"
             android:padding="14dp"
             android:background="@drawable/input_background"
-            android:layout_marginBottom="24dp" />
+            android:layout_marginBottom="12dp" />
 
-        <!-- 로그인 버튼 -->
         <Button
             android:id="@+id/loginButton"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:text="시작하기"
+            android:text="이메일로 시작하기"
             android:textSize="16sp"
             android:textColor="#FFFFFF"
             android:backgroundTint="#2D6A4F"

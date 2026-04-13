@@ -1,6 +1,7 @@
 package com.kkorichire.sms
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
@@ -15,9 +16,11 @@ import java.util.concurrent.TimeUnit
 
 class LoginActivity : AppCompatActivity() {
 
-    private lateinit var serverUrlInput: EditText
     private lateinit var emailInput: EditText
     private lateinit var loginButton: Button
+    private lateinit var btnGoogle: Button
+    private lateinit var btnKakao: Button
+    private lateinit var btnNaver: Button
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -29,6 +32,7 @@ class LoginActivity : AppCompatActivity() {
         const val KEY_TOKEN = "auth_token"
         const val KEY_USER_NAME = "user_name"
         const val KEY_USER_EMAIL = "user_email"
+        const val SERVER_URL = "https://kkorichire-sms.onrender.com"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,34 +41,63 @@ class LoginActivity : AppCompatActivity() {
         // 이미 로그인되어 있으면 메인으로
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val token = prefs.getString(KEY_TOKEN, "")
-        val serverUrl = prefs.getString(MainActivity.KEY_SERVER_URL, "")
-        if (!token.isNullOrEmpty() && !serverUrl.isNullOrEmpty()) {
+        if (!token.isNullOrEmpty()) {
             goToMain()
             return
         }
 
         setContentView(R.layout.activity_login)
 
-        serverUrlInput = findViewById(R.id.loginServerUrl)
         emailInput = findViewById(R.id.loginEmail)
         loginButton = findViewById(R.id.loginButton)
+        btnGoogle = findViewById(R.id.btnGoogle)
+        btnKakao = findViewById(R.id.btnKakao)
+        btnNaver = findViewById(R.id.btnNaver)
 
-        // 저장된 서버 URL 복원
-        if (!serverUrl.isNullOrEmpty()) {
-            serverUrlInput.setText(serverUrl)
-        }
-
-        loginButton.setOnClickListener { login() }
+        loginButton.setOnClickListener { loginWithEmail() }
+        btnGoogle.setOnClickListener { loginSocial("google") }
+        btnKakao.setOnClickListener { loginSocial("kakao") }
+        btnNaver.setOnClickListener { loginSocial("naver") }
     }
 
-    private fun login() {
-        val serverUrl = serverUrlInput.text.toString().trim()
-        val email = emailInput.text.toString().trim()
+    override fun onResume() {
+        super.onResume()
+        // 소셜 로그인 콜백 처리
+        val uri = intent?.data
+        if (uri != null && uri.toString().contains("/auth/app/callback")) {
+            val token = uri.getQueryParameter("token")
+            val name = uri.getQueryParameter("name") ?: ""
+            val email = uri.getQueryParameter("email") ?: ""
 
-        if (serverUrl.isEmpty()) {
-            Toast.makeText(this, "서버 주소를 입력해주세요", Toast.LENGTH_SHORT).show()
-            return
+            if (!token.isNullOrEmpty()) {
+                getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                    .edit()
+                    .putString(KEY_TOKEN, token)
+                    .putString(KEY_USER_NAME, name)
+                    .putString(KEY_USER_EMAIL, email)
+                    .putString(MainActivity.KEY_SERVER_URL, SERVER_URL)
+                    .apply()
+
+                Toast.makeText(this, "로그인 성공!", Toast.LENGTH_SHORT).show()
+                goToMain()
+            }
         }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+
+    private fun loginSocial(provider: String) {
+        // 브라우저에서 소셜 로그인 페이지 열기
+        val url = "$SERVER_URL/auth/$provider/start?redirect=app"
+        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        startActivity(browserIntent)
+    }
+
+    private fun loginWithEmail() {
+        val email = emailInput.text.toString().trim()
 
         if (email.isEmpty()) {
             Toast.makeText(this, "이메일을 입력해주세요", Toast.LENGTH_SHORT).show()
@@ -74,13 +107,12 @@ class LoginActivity : AppCompatActivity() {
         loginButton.isEnabled = false
         loginButton.text = "연결 중..."
 
-        // 간편 로그인: 이메일로 자동 가입/로그인
         val json = JSONObject().apply {
             put("email", email)
         }
 
         val request = Request.Builder()
-            .url("$serverUrl/auth/simple")
+            .url("$SERVER_URL/auth/simple")
             .post(json.toString().toRequestBody("application/json".toMediaType()))
             .build()
 
@@ -88,8 +120,8 @@ class LoginActivity : AppCompatActivity() {
             override fun onFailure(call: Call, e: IOException) {
                 runOnUiThread {
                     loginButton.isEnabled = true
-                    loginButton.text = "시작하기"
-                    Toast.makeText(this@LoginActivity, "서버 연결 실패. 주소를 확인해주세요.", Toast.LENGTH_LONG).show()
+                    loginButton.text = "이메일로 시작하기"
+                    Toast.makeText(this@LoginActivity, "서버 연결 실패. 잠시 후 다시 시도해주세요.", Toast.LENGTH_LONG).show()
                 }
             }
 
@@ -107,19 +139,19 @@ class LoginActivity : AppCompatActivity() {
                                 .putString(KEY_TOKEN, token)
                                 .putString(KEY_USER_NAME, user.optString("name", email))
                                 .putString(KEY_USER_EMAIL, user.optString("email", email))
-                                .putString(MainActivity.KEY_SERVER_URL, serverUrl)
+                                .putString(MainActivity.KEY_SERVER_URL, SERVER_URL)
                                 .apply()
 
                             Toast.makeText(this@LoginActivity, "로그인 성공!", Toast.LENGTH_SHORT).show()
                             goToMain()
                         } else {
                             loginButton.isEnabled = true
-                            loginButton.text = "시작하기"
+                            loginButton.text = "이메일로 시작하기"
                             Toast.makeText(this@LoginActivity, data.optString("error", "로그인 실패"), Toast.LENGTH_LONG).show()
                         }
                     } catch (e: Exception) {
                         loginButton.isEnabled = true
-                        loginButton.text = "시작하기"
+                        loginButton.text = "이메일로 시작하기"
                         Toast.makeText(this@LoginActivity, "서버 응답 오류", Toast.LENGTH_LONG).show()
                     }
                 }

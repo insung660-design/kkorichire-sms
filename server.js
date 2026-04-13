@@ -143,6 +143,103 @@ app.post('/auth/simple', (req, res) => {
   });
 });
 
+// ═══════════════════════════════════════
+//  소셜 로그인 (앱에서 브라우저로 열기)
+// ═══════════════════════════════════════
+
+// 구글 로그인 시작 (앱 → 브라우저)
+app.get('/auth/google/start', (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) return res.send('구글 로그인 설정이 필요합니다.');
+  const redirectUri = encodeURIComponent(`https://kkorichire-sms.onrender.com/auth/google/app-callback`);
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=email%20profile`;
+  res.redirect(url);
+});
+
+app.get('/auth/google/app-callback', async (req, res) => {
+  try {
+    const { code } = req.query;
+    // code를 토큰으로 교환
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `code=${code}&client_id=${process.env.GOOGLE_CLIENT_ID}&client_secret=${process.env.GOOGLE_CLIENT_SECRET}&redirect_uri=https://kkorichire-sms.onrender.com/auth/google/app-callback&grant_type=authorization_code`
+    });
+    const tokenData = await tokenRes.json();
+    // 사용자 정보 가져오기
+    const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+    });
+    const userData = await userRes.json();
+    const user = findOrCreateUser(userData.email, userData.name || userData.email, 'google', userData.id);
+    const jwtToken = generateToken(user);
+    res.redirect(`reviewjipsa://auth/auth/app/callback?token=${jwtToken}&name=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email)}`);
+  } catch (err) {
+    res.send('구글 로그인 실패: ' + err.message);
+  }
+});
+
+// 카카오 로그인 시작 (앱 → 브라우저)
+app.get('/auth/kakao/start', (req, res) => {
+  const clientId = process.env.KAKAO_CLIENT_ID;
+  if (!clientId) return res.send('카카오 로그인 설정이 필요합니다.');
+  const redirectUri = encodeURIComponent(`https://kkorichire-sms.onrender.com/auth/kakao/app-callback`);
+  const url = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code`;
+  res.redirect(url);
+});
+
+app.get('/auth/kakao/app-callback', async (req, res) => {
+  try {
+    const { code } = req.query;
+    const tokenRes = await fetch('https://kauth.kakao.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `grant_type=authorization_code&client_id=${process.env.KAKAO_CLIENT_ID}&redirect_uri=https://kkorichire-sms.onrender.com/auth/kakao/app-callback&code=${code}`
+    });
+    const tokenData = await tokenRes.json();
+    const userRes = await fetch('https://kapi.kakao.com/v2/user/me', {
+      headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+    });
+    const userData = await userRes.json();
+    const email = userData.kakao_account?.email || `kakao_${userData.id}@kakao.com`;
+    const name = userData.kakao_account?.profile?.nickname || '카카오 사용자';
+    const user = findOrCreateUser(email, name, 'kakao', String(userData.id));
+    const jwtToken = generateToken(user);
+    res.redirect(`reviewjipsa://auth/auth/app/callback?token=${jwtToken}&name=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email)}`);
+  } catch (err) {
+    res.send('카카오 로그인 실패: ' + err.message);
+  }
+});
+
+// 네이버 로그인 시작 (앱 → 브라우저)
+app.get('/auth/naver/start', (req, res) => {
+  const clientId = process.env.NAVER_CLIENT_ID;
+  if (!clientId) return res.send('네이버 로그인 설정이 필요합니다.');
+  const state = Math.random().toString(36).substring(2);
+  const redirectUri = encodeURIComponent(`https://kkorichire-sms.onrender.com/auth/naver/app-callback`);
+  const url = `https://nid.naver.com/oauth2.0/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&state=${state}`;
+  res.redirect(url);
+});
+
+app.get('/auth/naver/app-callback', async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    const tokenRes = await fetch(`https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id=${process.env.NAVER_CLIENT_ID}&client_secret=${process.env.NAVER_CLIENT_SECRET}&code=${code}&state=${state}`);
+    const tokenData = await tokenRes.json();
+    const userRes = await fetch('https://openapi.naver.com/v1/nid/me', {
+      headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+    });
+    const userData = await userRes.json();
+    const email = userData.response.email || `naver_${userData.response.id}@naver.com`;
+    const name = userData.response.name || userData.response.nickname || '네이버 사용자';
+    const user = findOrCreateUser(email, name, 'naver', userData.response.id);
+    const jwtToken = generateToken(user);
+    res.redirect(`reviewjipsa://auth/auth/app/callback?token=${jwtToken}&name=${encodeURIComponent(user.name)}&email=${encodeURIComponent(user.email)}`);
+  } catch (err) {
+    res.send('네이버 로그인 실패: ' + err.message);
+  }
+});
+
 // 토큰으로 내 정보 조회
 app.get('/auth/me', authMiddleware, (req, res) => {
   const user = req.user;
