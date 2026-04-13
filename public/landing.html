@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>리뷰집사 - 배달 주문 자동 리뷰 요청</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','맑은 고딕',sans-serif; color:#333; }
+
+    /* 히어로 */
+    .hero {
+      background:linear-gradient(135deg,#2d6a4f 0%,#40916c 100%);
+      color:#fff;
+      text-align:center;
+      padding:60px 24px 50px;
+    }
+    .hero h1 { font-size:36px; font-weight:800; margin-bottom:12px; }
+    .hero p { font-size:18px; opacity:0.9; margin-bottom:8px; }
+    .hero .sub { font-size:14px; opacity:0.7; margin-bottom:32px; }
+    .hero .cta { display:inline-block; background:#fff; color:#2d6a4f; padding:16px 40px; border-radius:12px; font-size:18px; font-weight:700; text-decoration:none; transition:transform 0.2s; }
+    .hero .cta:hover { transform:scale(1.05); }
+    .hero .free { margin-top:12px; font-size:14px; opacity:0.8; }
+
+    /* 섹션 공통 */
+    section { padding:60px 24px; max-width:800px; margin:0 auto; }
+    section h2 { font-size:26px; font-weight:800; text-align:center; margin-bottom:40px; color:#2d6a4f; }
+
+    /* 문제/해결 */
+    .problem { background:#f8f9fa; padding:60px 24px; }
+    .problem-grid { max-width:800px; margin:0 auto; display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+    .problem-card { background:#fff; border-radius:12px; padding:24px; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+    .problem-card h3 { font-size:16px; margin-bottom:8px; }
+    .problem-card p { font-size:14px; color:#666; line-height:1.6; }
+    .problem-card.before { border-top:3px solid #d32f2f; }
+    .problem-card.after { border-top:3px solid #2d6a4f; }
+
+    /* 기능 */
+    .features { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    .feature { text-align:center; padding:24px 16px; background:#f8fffe; border-radius:12px; }
+    .feature .icon { font-size:36px; margin-bottom:12px; }
+    .feature h3 { font-size:16px; font-weight:700; margin-bottom:8px; color:#333; }
+    .feature p { font-size:13px; color:#888; line-height:1.5; }
+
+    /* 사용법 */
+    .steps { counter-reset:step; }
+    .step { display:flex; align-items:flex-start; gap:16px; margin-bottom:24px; }
+    .step-num { width:40px; height:40px; background:#2d6a4f; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; flex-shrink:0; }
+    .step-content h3 { font-size:16px; font-weight:700; margin-bottom:4px; }
+    .step-content p { font-size:14px; color:#666; }
+
+    /* 가격 */
+    .pricing { background:#f8f9fa; padding:60px 24px; }
+    .pricing-grid { max-width:800px; margin:0 auto; display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+    .price-card { background:#fff; border-radius:16px; padding:32px 24px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+    .price-card.popular { border:2px solid #2d6a4f; position:relative; }
+    .price-card.popular::before { content:'추천'; position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:#2d6a4f; color:#fff; padding:4px 16px; border-radius:20px; font-size:12px; font-weight:700; }
+    .price-card h3 { font-size:20px; font-weight:700; margin-bottom:8px; }
+    .price-card .price { font-size:36px; font-weight:800; color:#2d6a4f; margin:16px 0; }
+    .price-card .price span { font-size:16px; font-weight:400; color:#999; }
+    .price-card ul { list-style:none; text-align:left; margin:20px 0; }
+    .price-card li { padding:6px 0; font-size:14px; color:#555; }
+    .price-card li::before { content:'✓ '; color:#2d6a4f; font-weight:700; }
+    .price-card .btn { display:block; padding:14px; background:#2d6a4f; color:#fff; border-radius:10px; text-decoration:none; font-weight:700; font-size:16px; }
+
+    /* FAQ */
+    .faq-item { border-bottom:1px solid #eee; padding:20px 0; }
+    .faq-item h3 { font-size:15px; font-weight:700; margin-bottom:8px; cursor:pointer; }
+    .faq-item p { font-size:14px; color:#666; line-height:1.6; }
+
+    /* 푸터 */
+    footer { background:#1b4332; color:#fff; text-align:center; padding:32px 24px; }
+    footer p { font-size:13px; opacity:0.7; }
+    footer a { color:#95d5b2; }
+
+    /* CTA 하단 */
+    .bottom-cta { text-align:center; padding:60px 24px; background:linear-gradient(135deg,#40916c 0%,#2d6a4f 100%); color:#fff; }
+    .bottom-cta h2 { font-size:24px; margin-bottom:12px; color:#fff; }
+    .bottom-cta p { font-size:16px; opacity:0.9; margin-bottom:24px; }
+    .bottom-cta .cta { display:inline-block; background:#fff; color:#2d6a4f; padding:16px 40px; border-radius:12px; font-size:18px; font-weight:700; text-decoration:none; }
+
+    @media (max-width:600px) {
+      .hero h1 { font-size:28px; }
+      .problem-grid, .features, .pricing-grid { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 히어로 -->
+  <div class="hero">
+    <h1>리뷰집사</h1>
+    <p>배달 주문 후 자동으로 리뷰를 요청합니다</p>
+    <div class="sub">배달의민족 주문 감지 → 2시간 후 자동 문자 발송</div>
+    <a href="/" class="cta">무료로 시작하기</a>
+    <div class="free">15일 무료 체험 · 카드 등록 필요 없음</div>
+  </div>
+
+  <!-- 문제/해결 -->
+  <div class="problem">
+    <h2 style="text-align:center;font-size:26px;font-weight:800;color:#2d6a4f;margin-bottom:40px;max-width:800px;margin-left:auto;margin-right:auto;">사장님, 이런 고민 있으신가요?</h2>
+    <div class="problem-grid">
+      <div class="problem-card before">
+        <h3>리뷰집사 없이</h3>
+        <p>주문마다 일일이 리뷰 요청 문자를 보내야 함. 바쁜 영업 중에 놓치기 쉽고, 리뷰 수가 늘지 않음.</p>
+      </div>
+      <div class="problem-card after">
+        <h3>리뷰집사 사용 후</h3>
+        <p>주문이 들어오면 자동으로 감지! 2시간 후 감사 인사 + 리뷰 요청 문자가 자동 발송됩니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 주요 기능 -->
+  <section>
+    <h2>주요 기능</h2>
+    <div class="features">
+      <div class="feature">
+        <div class="icon">📱</div>
+        <h3>배민 주문 자동 감지</h3>
+        <p>배달의민족 사장님 앱 알림을 자동으로 감지하여 고객 번호를 추출합니다</p>
+      </div>
+      <div class="feature">
+        <div class="icon">💬</div>
+        <h3>자동 문자 발송</h3>
+        <p>설정한 시간 후 핸드폰 문자로 자동 발송. 별도 비용 없이 요금제 문자 사용</p>
+      </div>
+      <div class="feature">
+        <div class="icon">✏️</div>
+        <h3>메시지 자유 설정</h3>
+        <p>감사 인사, 리뷰 요청 등 원하는 메시지를 자유롭게 작성할 수 있습니다</p>
+      </div>
+      <div class="feature">
+        <div class="icon">📊</div>
+        <h3>발송 내역 확인</h3>
+        <p>오늘 발송 건수, 대기 중, 실패 건수를 실시간으로 확인합니다</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 사용 방법 -->
+  <section style="background:#f8f9fa;max-width:100%;padding:60px 24px;">
+    <div style="max-width:800px;margin:0 auto;">
+      <h2>3분이면 설정 끝!</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h3>앱 설치</h3>
+            <p>리뷰집사 앱을 다운로드하여 핸드폰에 설치합니다</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h3>로그인 + 권한 설정</h3>
+            <p>소셜 로그인 후 알림 접근 권한을 켜주세요</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h3>서비스 시작!</h3>
+            <p>서비스 시작 버튼 한 번이면 끝! 이후 모든 것이 자동입니다</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 가격 -->
+  <div class="pricing">
+    <h2 style="text-align:center;font-size:26px;font-weight:800;color:#2d6a4f;margin-bottom:40px;">요금 안내</h2>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <h3>무료 체험</h3>
+        <div class="price">0원 <span>/ 15일</span></div>
+        <ul>
+          <li>모든 기능 사용 가능</li>
+          <li>배민 주문 자동 감지</li>
+          <li>자동 문자 발송</li>
+          <li>카드 등록 불필요</li>
+        </ul>
+        <a href="/" class="btn">무료로 시작하기</a>
+      </div>
+      <div class="price-card popular">
+        <h3>정기 구독</h3>
+        <div class="price">준비중 <span>/ 월</span></div>
+        <ul>
+          <li>무제한 사용</li>
+          <li>배민 주문 자동 감지</li>
+          <li>자동 문자 발송</li>
+          <li>우선 고객 지원</li>
+        </ul>
+        <a href="/" class="btn" style="background:#5C6BC0;">출시 알림 받기</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <section>
+    <h2>자주 묻는 질문</h2>
+    <div class="faq-item">
+      <h3>문자 발송 비용이 따로 드나요?</h3>
+      <p>아닙니다! 사장님 핸드폰 요금제의 무료 문자를 사용하기 때문에 별도 비용이 없습니다.</p>
+    </div>
+    <div class="faq-item">
+      <h3>배달의민족 외 다른 앱도 지원하나요?</h3>
+      <p>현재는 배달의민족을 지원하며, 요기요, 쿠팡이츠 등은 추후 지원 예정입니다.</p>
+    </div>
+    <div class="faq-item">
+      <h3>핸드폰을 꺼도 되나요?</h3>
+      <p>앱이 백그라운드에서 실행되므로 다른 앱을 사용해도 괜찮습니다. 단, 핸드폰이 꺼지면 문자 발송이 중단됩니다.</p>
+    </div>
+    <div class="faq-item">
+      <h3>050 안심번호로도 문자가 가나요?</h3>
+      <p>050 안심번호는 일정 시간 후 만료될 수 있어, 발송 시간을 짧게 설정하시는 것을 권장합니다.</p>
+    </div>
+    <div class="faq-item">
+      <h3>여러 매장에서 사용할 수 있나요?</h3>
+      <p>네! 매장별로 각각 계정을 만들어 사용하시면 됩니다. 각 매장마다 별도의 설정이 가능합니다.</p>
+    </div>
+  </section>
+
+  <!-- 하단 CTA -->
+  <div class="bottom-cta">
+    <h2>지금 바로 리뷰를 늘려보세요</h2>
+    <p>15일 무료 체험, 카드 등록 없이 바로 시작!</p>
+    <a href="/" class="cta">무료로 시작하기</a>
+  </div>
+
+  <!-- 푸터 -->
+  <footer>
+    <p>리뷰집사 | 배달 주문 자동 리뷰 요청 서비스</p>
+    <p style="margin-top:8px;">문의: <a href="mailto:insung660@gmail.com">insung660@gmail.com</a></p>
+  </footer>
+
+</body>
+</html>
