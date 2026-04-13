@@ -77,26 +77,45 @@
 
       <!-- 탭 -->
       <nav class="tabs">
-        <button class="tab active" data-tab="register">주문 등록</button>
+        <button class="tab active" data-tab="download">앱 다운로드</button>
         <button class="tab" data-tab="history">발송 내역</button>
         <button class="tab" data-tab="settings">설정</button>
+        <button class="tab" data-tab="subscribe">구독</button>
       </nav>
 
-      <!-- 주문 등록 -->
-      <section id="tab-register" class="tab-content active">
-        <div class="card">
-          <h2>고객 번호 등록</h2>
-          <p class="hint">배달의민족 주문 고객 번호를 입력하세요</p>
-          <form id="order-form">
-            <input type="tel" id="phone-input" placeholder="010-1234-5678 또는 050-xxxx-xxxx" autocomplete="off" required>
-            <button type="submit" class="btn-primary">문자 예약</button>
-          </form>
-          <div id="register-result" class="result hidden"></div>
+      <!-- 앱 다운로드 -->
+      <section id="tab-download" class="tab-content active">
+        <div class="card" style="text-align:center;">
+          <h2>리뷰집사 앱 다운로드</h2>
+          <p class="hint">안드로이드 핸드폰에 앱을 설치하면<br>배민 주문을 자동으로 감지하여 문자를 발송합니다</p>
+          <a href="/download/ReviewJipsa.apk" class="btn-primary" style="display:block;text-decoration:none;text-align:center;margin-top:20px;">앱 다운로드 (APK)</a>
+          <p style="margin-top:16px;font-size:12px;color:#999;">Android 8.0 이상 지원</p>
         </div>
         <div class="card">
-          <h2>최근 등록</h2>
-          <div id="recent-list" class="message-list">
-            <p class="empty">등록된 내역이 없습니다</p>
+          <h2>설치 방법</h2>
+          <div style="font-size:14px;color:#555;line-height:1.8;">
+            <p><strong>1.</strong> 위 버튼을 눌러 APK 파일 다운로드</p>
+            <p><strong>2.</strong> 다운로드된 파일 열기 → "설치" 클릭</p>
+            <p><strong>3.</strong> 앱 실행 → 로그인 → 알림 권한 켜기</p>
+            <p><strong>4.</strong> "서비스 시작" 누르면 끝!</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 구독 -->
+      <section id="tab-subscribe" class="tab-content">
+        <div class="card" style="text-align:center;">
+          <h2>구독 플랜</h2>
+          <div style="background:#f8fffe;border-radius:12px;padding:24px;margin:16px 0;">
+            <p style="font-size:14px;color:#888;">현재 플랜</p>
+            <p style="font-size:24px;font-weight:800;color:#2d6a4f;margin:8px 0;" id="current-plan">무료 체험</p>
+            <p style="font-size:13px;color:#666;" id="plan-detail">15일 무료 체험 중</p>
+          </div>
+          <div style="background:#fff;border:2px solid #5C6BC0;border-radius:12px;padding:24px;margin:16px 0;">
+            <p style="font-size:18px;font-weight:700;color:#333;">정기 구독</p>
+            <p style="font-size:32px;font-weight:800;color:#5C6BC0;margin:12px 0;">준비중</p>
+            <p style="font-size:13px;color:#888;">출시 시 알려드리겠습니다</p>
+            <button class="btn-primary" style="background:#5C6BC0;margin-top:16px;" onclick="alert('구독 결제 기능은 준비 중입니다.')">구독 시작하기</button>
           </div>
         </div>
       </section>
