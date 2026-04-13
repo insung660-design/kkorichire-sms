@@ -163,11 +163,19 @@ function loginRedirect(req, res, user, jwtToken, stateParam) {
 // 로그인 성공 페이지 (웹용)
 app.get('/auth/success', (req, res) => {
   const { token, name, email } = req.query;
-  res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>로그인 성공</title></head><body>
+  res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>로그인 성공</title>
+    <style>body{display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:sans-serif;background:#f5f5f5;margin:0;}
+    .box{text-align:center;}.spinner{width:40px;height:40px;border:4px solid #ddd;border-top:4px solid #2d6a4f;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px;}
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}</style></head><body>
+    <div class="box"><div class="spinner"></div><p>로그인 중...</p></div>
     <script>
-      localStorage.setItem('token','${token}');
-      localStorage.setItem('user',JSON.stringify({name:'${(name||'').replace(/'/g,"\\'")}',email:'${(email||'').replace(/'/g,"\\'")}'}));
-      window.location.href='/';
+      try {
+        localStorage.setItem('token','${token}');
+        localStorage.setItem('user', JSON.stringify({name:decodeURIComponent('${encodeURIComponent(name||'')}'),email:decodeURIComponent('${encodeURIComponent(email||'')}')}));
+        setTimeout(function(){ window.location.replace('/'); }, 500);
+      } catch(e) {
+        document.body.innerHTML = '<p>로그인 처리 중 오류: '+e.message+'</p><a href="/">다시 시도</a>';
+      }
     </script></body></html>`);
 });
 
