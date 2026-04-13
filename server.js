@@ -370,6 +370,82 @@ app.get('/auth/config', (req, res) => {
   });
 });
 
+// ═══════════════════════════════════════
+//  관리자 API
+// ═══════════════════════════════════════
+
+const ADMIN_KEY = process.env.ADMIN_KEY || 'reviewjipsa-admin-2026';
+
+function adminMiddleware(req, res, next) {
+  const key = req.headers['x-admin-key'] || req.query.key;
+  if (key !== ADMIN_KEY) {
+    return res.status(403).json({ error: '관리자 권한이 없습니다' });
+  }
+  next();
+}
+
+// 전체 사용자 목록
+app.get('/admin/users', adminMiddleware, (req, res) => {
+  const users = db.prepare(`
+    SELECT u.*,
+      (SELECT COUNT(*) FROM messages WHERE user_id = u.id) as total_messages,
+      (SELECT COUNT(*) FROM messages WHERE user_id = u.id AND sent = 1) as sent_messages
+    FROM users u ORDER BY u.created_at DESC
+  `).all();
+  res.json(users);
+});
+
+// 사용자 무료 체험 기간 연장
+app.post('/admin/users/:id/extend', adminMiddleware, (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  const { days } = req.body;
+  if (!days) return res.status(400).json({ error: 'days 필요' });
+
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다' });
+
+  // 현재 만료일 기준 또는 오늘 기준으로 연장
+  const baseDate = new Date(user.trial_expires_at) > new Date()
+    ? new Date(user.trial_expires_at)
+    : new Date();
+  const newExpiry = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
+  const newExpiryStr = newExpiry.toISOString().replace('T', ' ').slice(0, 19);
+
+  db.prepare('UPDATE users SET trial_expires_at = ? WHERE id = ?').run(newExpiryStr, userId);
+
+  res.json({ success: true, trial_expires_at: newExpiryStr });
+});
+
+// 사용자 삭제
+app.delete('/admin/users/:id', adminMiddleware, (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  db.prepare('DELETE FROM messages WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM user_settings WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+  res.json({ success: true });
+});
+
+// 전체 통계
+app.get('/admin/stats', adminMiddleware, (req, res) => {
+  const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get();
+  const activeUsers = db.prepare("SELECT COUNT(*) as count FROM users WHERE trial_expires_at > datetime('now','localtime')").get();
+  const expiredUsers = db.prepare("SELECT COUNT(*) as count FROM users WHERE trial_expires_at <= datetime('now','localtime')").get();
+  const totalMessages = db.prepare('SELECT COUNT(*) as count FROM messages').get();
+  const sentMessages = db.prepare('SELECT COUNT(*) as count FROM messages WHERE sent = 1').get();
+  res.json({
+    total_users: totalUsers.count,
+    active_users: activeUsers.count,
+    expired_users: expiredUsers.count,
+    total_messages: totalMessages.count,
+    sent_messages: sentMessages.count
+  });
+});
+
+// 관리자 페이지 서빙
+app.get('/admin', adminMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
 // ─── 서버 시작 ───
 app.listen(PORT, () => {
   console.log('');

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>리뷰집사 - 관리자</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','맑은 고딕',sans-serif; background:#f0f2f5; color:#333; }
+    .container { max-width:900px; margin:0 auto; padding:16px; }
+    header { text-align:center; padding:20px 0; }
+    header h1 { color:#2d6a4f; font-size:22px; }
+    header p { color:#888; font-size:13px; }
+
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:20px; }
+    .stat-card { background:#fff; border-radius:12px; padding:16px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+    .stat-card .num { font-size:28px; font-weight:700; color:#2d6a4f; }
+    .stat-card .label { font-size:12px; color:#999; margin-top:4px; }
+    .stat-card.warn .num { color:#e65100; }
+    .stat-card.danger .num { color:#d32f2f; }
+
+    .card { background:#fff; border-radius:12px; padding:20px; margin-bottom:16px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+    .card h2 { font-size:16px; font-weight:700; margin-bottom:16px; }
+
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th { background:#f8f9fa; padding:10px 8px; text-align:left; font-weight:600; color:#555; border-bottom:2px solid #eee; }
+    td { padding:10px 8px; border-bottom:1px solid #f0f0f0; }
+    tr:hover { background:#f8fffe; }
+
+    .badge { display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600; }
+    .badge-active { background:#e8f5e9; color:#2d6a4f; }
+    .badge-expired { background:#fce4ec; color:#c62828; }
+
+    .btn { border:none; padding:6px 14px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; }
+    .btn-extend { background:#e3f2fd; color:#1565c0; }
+    .btn-extend:hover { background:#bbdefb; }
+    .btn-delete { background:#fce4ec; color:#c62828; }
+    .btn-delete:hover { background:#f8bbd0; }
+    .btn-actions { display:flex; gap:6px; }
+
+    .extend-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.5); z-index:100; justify-content:center; align-items:center; }
+    .extend-modal.show { display:flex; }
+    .modal-content { background:#fff; border-radius:12px; padding:24px; width:90%; max-width:360px; text-align:center; }
+    .modal-content h3 { margin-bottom:16px; }
+    .modal-content input { width:100px; padding:10px; border:2px solid #ddd; border-radius:8px; font-size:16px; text-align:center; margin:8px; }
+    .modal-content .btn-primary { background:#2d6a4f; color:#fff; padding:10px 24px; border-radius:8px; font-size:14px; margin:8px; }
+    .modal-content .btn-cancel { background:#eee; color:#666; padding:10px 24px; border-radius:8px; font-size:14px; margin:8px; }
+
+    .search-bar { width:100%; padding:10px 14px; border:2px solid #e0e0e0; border-radius:8px; font-size:14px; margin-bottom:16px; outline:none; }
+    .search-bar:focus { border-color:#2d6a4f; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>리뷰집사 관리자</h1>
+      <p>사용자 관리 및 통계</p>
+    </header>
+
+    <!-- 통계 -->
+    <div class="stats-grid">
+      <div class="stat-card"><div class="num" id="s-total">0</div><div class="label">전체 사용자</div></div>
+      <div class="stat-card"><div class="num" id="s-active">0</div><div class="label">활성 사용자</div></div>
+      <div class="stat-card warn"><div class="num" id="s-expired">0</div><div class="label">만료된 사용자</div></div>
+      <div class="stat-card"><div class="num" id="s-messages">0</div><div class="label">총 발송 건수</div></div>
+    </div>
+
+    <!-- 사용자 목록 -->
+    <div class="card">
+      <h2>사용자 목록</h2>
+      <input type="text" class="search-bar" id="searchInput" placeholder="이메일 또는 이름으로 검색..." oninput="filterUsers()">
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>이름</th>
+              <th>이메일</th>
+              <th>가입방식</th>
+              <th>상태</th>
+              <th>만료일</th>
+              <th>발송수</th>
+              <th>가입일</th>
+              <th>관리</th>
+            </tr>
+          </thead>
+          <tbody id="userTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 연장 모달 -->
+  <div class="extend-modal" id="extendModal">
+    <div class="modal-content">
+      <h3 id="modalUserName">무료 기간 연장</h3>
+      <p>연장할 일수를 입력하세요</p>
+      <input type="number" id="extendDays" value="15" min="1" max="365">
+      <span>일</span>
+      <div style="margin-top:16px;">
+        <button class="btn btn-primary" onclick="confirmExtend()">연장</button>
+        <button class="btn btn-cancel" onclick="closeModal()">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const KEY = new URLSearchParams(window.location.search).get('key');
+    let allUsers = [];
+    let extendUserId = null;
+
+    async function api(url, options = {}) {
+      const headers = { 'Content-Type':'application/json', 'X-Admin-Key': KEY, ...options.headers };
+      return fetch(url, { ...options, headers });
+    }
+
+    async function loadStats() {
+      const res = await api('/admin/stats');
+      const s = await res.json();
+      document.getElementById('s-total').textContent = s.total_users;
+      document.getElementById('s-active').textContent = s.active_users;
+      document.getElementById('s-expired').textContent = s.expired_users;
+      document.getElementById('s-messages').textContent = s.sent_messages;
+    }
+
+    async function loadUsers() {
+      const res = await api('/admin/users');
+      allUsers = await res.json();
+      renderUsers(allUsers);
+    }
+
+    function filterUsers() {
+      const q = document.getElementById('searchInput').value.toLowerCase();
+      const filtered = allUsers.filter(u =>
+        (u.email || '').toLowerCase().includes(q) ||
+        (u.name || '').toLowerCase().includes(q)
+      );
+      renderUsers(filtered);
+    }
+
+    function renderUsers(users) {
+      const tbody = document.getElementById('userTable');
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#bbb;padding:20px">사용자가 없습니다</td></tr>';
+        return;
+      }
+      tbody.innerHTML = users.map(u => {
+        const now = new Date();
+        const expires = new Date(u.trial_expires_at);
+        const active = expires > now;
+        const daysLeft = Math.ceil((expires - now) / (1000*60*60*24));
+        const badge = active
+          ? `<span class="badge badge-active">${daysLeft}일 남음</span>`
+          : `<span class="badge badge-expired">만료</span>`;
+        const expireDate = u.trial_expires_at ? u.trial_expires_at.slice(0,10) : '-';
+        const joinDate = u.created_at ? u.created_at.slice(0,10) : '-';
+
+        return `<tr>
+          <td>${u.id}</td>
+          <td>${u.name || '-'}</td>
+          <td>${u.email}</td>
+          <td>${u.provider}</td>
+          <td>${badge}</td>
+          <td>${expireDate}</td>
+          <td>${u.sent_messages || 0}/${u.total_messages || 0}</td>
+          <td>${joinDate}</td>
+          <td>
+            <div class="btn-actions">
+              <button class="btn btn-extend" onclick="openExtend(${u.id},'${u.name || u.email}')">연장</button>
+              <button class="btn btn-delete" onclick="deleteUser(${u.id},'${u.name || u.email}')">삭제</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function openExtend(userId, name) {
+      extendUserId = userId;
+      document.getElementById('modalUserName').textContent = name + ' 무료 기간 연장';
+      document.getElementById('extendDays').value = 15;
+      document.getElementById('extendModal').classList.add('show');
+    }
+
+    function closeModal() {
+      document.getElementById('extendModal').classList.remove('show');
+      extendUserId = null;
+    }
+
+    async function confirmExtend() {
+      if (!extendUserId) return;
+      const days = parseInt(document.getElementById('extendDays').value);
+      if (!days || days < 1) return alert('1일 이상 입력해주세요');
+
+      await api(`/admin/users/${extendUserId}/extend`, {
+        method: 'POST',
+        body: JSON.stringify({ days })
+      });
+
+      closeModal();
+      loadUsers();
+      loadStats();
+      alert(`${days}일 연장 완료!`);
+    }
+
+    async function deleteUser(userId, name) {
+      if (!confirm(`"${name}" 사용자를 삭제할까요?\n모든 데이터가 삭제됩니다.`)) return;
+      await api(`/admin/users/${userId}`, { method: 'DELETE' });
+      loadUsers();
+      loadStats();
+    }
+
+    // 초기 로드
+    loadStats();
+    loadUsers();
+    setInterval(() => { loadStats(); loadUsers(); }, 30000);
+  </script>
+</body>
+</html>
