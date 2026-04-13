@@ -1,5 +1,7 @@
 node_modules/
 data.db
 .env
-android-app/
+android-app/.gradle/
+android-app/build/
+android-app/app/build/
 *.bat
