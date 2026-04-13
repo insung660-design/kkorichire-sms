@@ -320,3 +320,89 @@ input[type="number"] {
 .btn-cancel:hover {
   color: #d32f2f;
 }
+
+/* 로그인 페이지 */
+.login-card {
+  margin-top: 40px;
+  text-align: center;
+}
+
+.btn-social {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: opacity 0.2s;
+}
+
+.btn-social:hover { opacity: 0.9; }
+
+.btn-google {
+  background: #fff;
+  color: #333;
+  border: 2px solid #ddd;
+}
+
+.btn-kakao {
+  background: #FEE500;
+  color: #3C1E1E;
+}
+
+.btn-naver {
+  background: #03C75A;
+  color: #fff;
+}
+
+.login-info {
+  margin-top: 16px;
+  font-size: 13px;
+  color: #2d6a4f;
+  font-weight: 600;
+}
+
+/* 사용자 바 */
+.user-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: #888;
+}
+
+.btn-logout {
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #999;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* 체험 기간 바 */
+.trial-bar {
+  background: #e8f5e9;
+  border-radius: 8px;
+  padding: 8px 16px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #2d6a4f;
+  text-align: center;
+  font-weight: 600;
+}
+
+.trial-bar.warning {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.trial-bar.expired {
+  background: #fce4ec;
+  color: #c62828;
+}

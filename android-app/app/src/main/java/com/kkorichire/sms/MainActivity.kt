@@ -14,16 +14,30 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var serverUrlInput: EditText
+    private lateinit var templateInput: EditText
+    private lateinit var delayInput: EditText
     private lateinit var statusText: TextView
     private lateinit var baeminStatusText: TextView
     private lateinit var logText: TextView
     private lateinit var startButton: Button
     private lateinit var stopButton: Button
     private lateinit var notificationSettingsButton: Button
+    private lateinit var saveSettingsButton: Button
+
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .build()
 
     companion object {
         const val PREFS_NAME = "kkorichire_prefs"
@@ -36,12 +50,15 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         serverUrlInput = findViewById(R.id.serverUrlInput)
+        templateInput = findViewById(R.id.templateInput)
+        delayInput = findViewById(R.id.delayInput)
         statusText = findViewById(R.id.statusText)
         baeminStatusText = findViewById(R.id.baeminStatusText)
         logText = findViewById(R.id.logText)
         startButton = findViewById(R.id.startButton)
         stopButton = findViewById(R.id.stopButton)
         notificationSettingsButton = findViewById(R.id.notificationSettingsButton)
+        saveSettingsButton = findViewById(R.id.saveSettingsButton)
 
         // 저장된 서버 URL 복원
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
@@ -56,8 +73,85 @@ class MainActivity : AppCompatActivity() {
         startButton.setOnClickListener { startService() }
         stopButton.setOnClickListener { stopService() }
         notificationSettingsButton.setOnClickListener { openNotificationSettings() }
+        saveSettingsButton.setOnClickListener { saveSettings() }
 
         updateStatus()
+        loadSettings()
+    }
+
+    private fun getAuthToken(): String {
+        return getSharedPreferences(LoginActivity.PREFS_NAME, MODE_PRIVATE)
+            .getString(LoginActivity.KEY_TOKEN, "") ?: ""
+    }
+
+    // 서버에서 설정 불러오기
+    private fun loadSettings() {
+        val serverUrl = serverUrlInput.text.toString().trim()
+        if (serverUrl.isEmpty()) return
+
+        val request = Request.Builder()
+            .url("$serverUrl/api/settings")
+            .addHeader("Authorization", "Bearer ${getAuthToken()}")
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {}
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return
+                    val json = JSONObject(body)
+                    val template = json.optString("message_template", "")
+                    val delay = json.optString("delay_minutes", "120")
+
+                    runOnUiThread {
+                        templateInput.setText(template)
+                        delayInput.setText(delay)
+                    }
+                }
+            }
+        })
+    }
+
+    // 설정 서버에 저장
+    private fun saveSettings() {
+        val serverUrl = serverUrlInput.text.toString().trim()
+        if (serverUrl.isEmpty()) {
+            Toast.makeText(this, "서버 주소를 먼저 입력해주세요", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val template = templateInput.text.toString()
+        val delay = delayInput.text.toString().toIntOrNull() ?: 120
+
+        val json = JSONObject().apply {
+            put("message_template", template)
+            put("delay_minutes", delay)
+        }
+
+        val request = Request.Builder()
+            .url("$serverUrl/api/settings")
+            .addHeader("Authorization", "Bearer ${getAuthToken()}")
+            .put(json.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread {
+                    Toast.makeText(this@MainActivity, "서버 연결 실패", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                runOnUiThread {
+                    if (response.isSuccessful) {
+                        Toast.makeText(this@MainActivity, "설정 저장 완료!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this@MainActivity, "저장 실패", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        })
     }
 
     private fun requestPermissions() {
@@ -80,14 +174,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 알림 접근 권한 설정 화면 열기
     private fun openNotificationSettings() {
         val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
         startActivity(intent)
-        Toast.makeText(this, "꼬리치레 SMS를 찾아서 켜주세요!", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "리뷰집사를 찾아서 켜주세요!", Toast.LENGTH_LONG).show()
     }
 
-    // 알림 접근 권한 확인
     private fun isNotificationListenerEnabled(): Boolean {
         val cn = ComponentName(this, BaeminNotificationListener::class.java)
         val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
@@ -121,7 +213,6 @@ class MainActivity : AppCompatActivity() {
             .putString(KEY_SERVER_URL, serverUrl)
             .apply()
 
-        // 서비스 시작
         val intent = Intent(this, SmsService::class.java).apply {
             putExtra("server_url", serverUrl)
         }
@@ -138,7 +229,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateStatus() {
-        // SMS 서비스 상태
         val isRunning = SmsService.isRunning
         statusText.text = if (isRunning) "● 문자 발송 서비스 실행 중" else "○ 문자 발송 서비스 중지됨"
         statusText.setTextColor(
@@ -147,7 +237,6 @@ class MainActivity : AppCompatActivity() {
         startButton.isEnabled = !isRunning
         stopButton.isEnabled = isRunning
 
-        // 배민 알림 감지 상태
         val notifEnabled = isNotificationListenerEnabled()
         baeminStatusText.text = if (notifEnabled)
             "● 배민 주문 자동 감지 중" else "○ 배민 주문 감지 꺼짐"
@@ -161,6 +250,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateStatus()
+        loadSettings()
 
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         logText.text = prefs.getString("recent_log", "아직 발송 내역이 없습니다")

@@ -15,7 +15,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="꼬리치레"
+            android:text="리뷰집사"
             android:textSize="28sp"
             android:textColor="#2D6A4F"
             android:textStyle="bold"
@@ -107,6 +107,73 @@
             android:textColor="#666666"
             android:backgroundTint="#E0E0E0"
             android:enabled="false"
+            android:layout_marginBottom="24dp" />
+
+        <!-- 문자 메시지 설정 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="문자 메시지 설정"
+            android:textSize="14sp"
+            android:textColor="#555555"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/templateInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minLines="4"
+            android:hint="고객에게 보낼 메시지를 작성하세요"
+            android:inputType="textMultiLine"
+            android:textSize="14sp"
+            android:padding="14dp"
+            android:gravity="top"
+            android:background="@drawable/input_background"
+            android:layout_marginBottom="12dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="발송 지연 시간"
+                android:textSize="14sp"
+                android:textColor="#555555"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/delayInput"
+                android:layout_width="80dp"
+                android:layout_height="44dp"
+                android:inputType="number"
+                android:text="120"
+                android:textSize="15sp"
+                android:gravity="center"
+                android:background="@drawable/input_background" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=" 분 후"
+                android:textSize="14sp"
+                android:textColor="#555555" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/saveSettingsButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="설정 저장"
+            android:textSize="14sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#2D6A4F"
             android:layout_marginBottom="24dp" />
 
         <!-- 발송 로그 -->

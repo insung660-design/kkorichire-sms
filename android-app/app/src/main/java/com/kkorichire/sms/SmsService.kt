@@ -37,6 +37,7 @@ class SmsService : Service() {
     private val scheduler = Executors.newSingleThreadScheduledExecutor()
     private var pollTask: ScheduledFuture<*>? = null
     private var serverUrl = ""
+    private var authToken = ""
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -47,6 +48,8 @@ class SmsService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         serverUrl = intent?.getStringExtra("server_url") ?: ""
+        val prefs = getSharedPreferences(LoginActivity.PREFS_NAME, MODE_PRIVATE)
+        authToken = prefs.getString(LoginActivity.KEY_TOKEN, "") ?: ""
 
         if (serverUrl.isEmpty()) {
             stopSelf()
@@ -89,6 +92,7 @@ class SmsService : Service() {
         try {
             val request = Request.Builder()
                 .url("$serverUrl/api/phone/pending")
+                .addHeader("Authorization", "Bearer $authToken")
                 .build()
 
             client.newCall(request).execute().use { response ->
@@ -171,6 +175,7 @@ class SmsService : Service() {
 
             val request = Request.Builder()
                 .url("$serverUrl/api/phone/report")
+                .addHeader("Authorization", "Bearer $authToken")
                 .post(json.toString().toRequestBody("application/json".toMediaType()))
                 .build()
 
@@ -184,6 +189,7 @@ class SmsService : Service() {
         try {
             val request = Request.Builder()
                 .url("$serverUrl/api/phone/heartbeat")
+                .addHeader("Authorization", "Bearer $authToken")
                 .post("{}".toRequestBody("application/json".toMediaType()))
                 .build()
 
@@ -207,7 +213,7 @@ class SmsService : Service() {
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "꼬리치레 문자 발송",
+            "리뷰집사 문자 발송",
             NotificationManager.IMPORTANCE_LOW
         ).apply {
             description = "자동 문자 발송 서비스"
@@ -223,7 +229,7 @@ class SmsService : Service() {
         )
 
         return Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("꼬리치레 SMS")
+            .setContentTitle("리뷰집사")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_dialog_email)
             .setContentIntent(pendingIntent)

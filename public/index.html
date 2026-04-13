@@ -3,105 +3,144 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>꼬리치레 - 자동 문자 발송</title>
+  <title>리뷰집사 - 자동 리뷰 요청</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
-    <!-- 헤더 -->
-    <header>
-      <h1>꼬리치레</h1>
-      <p class="subtitle">자동 문자 발송 시스템</p>
-    </header>
 
-    <!-- 핸드폰 연결 상태 -->
-    <div class="phone-status" id="phone-status">
-      <span class="status-dot disconnected"></span>
-      <span id="phone-status-text">핸드폰 앱 연결 대기중...</span>
-    </div>
+    <!-- 로그인 화면 -->
+    <div id="login-page">
+      <header>
+        <h1>리뷰집사</h1>
+        <p class="subtitle">배달 주문 자동 리뷰 요청 서비스</p>
+      </header>
 
-    <!-- 오늘 통계 -->
-    <div class="stats-bar">
-      <div class="stat">
-        <span class="stat-num" id="stat-total">0</span>
-        <span class="stat-label">오늘 등록</span>
-      </div>
-      <div class="stat">
-        <span class="stat-num" id="stat-pending">0</span>
-        <span class="stat-label">대기중</span>
-      </div>
-      <div class="stat">
-        <span class="stat-num sent" id="stat-sent">0</span>
-        <span class="stat-label">발송완료</span>
-      </div>
-      <div class="stat">
-        <span class="stat-num failed" id="stat-failed">0</span>
-        <span class="stat-label">실패</span>
+      <div class="card login-card">
+        <h2>로그인</h2>
+        <p class="hint">소셜 계정으로 간편 로그인하세요</p>
+
+        <button class="btn-social btn-google" onclick="loginGoogle()">
+          Google 로그인
+        </button>
+        <button class="btn-social btn-kakao" onclick="loginKakao()">
+          카카오 로그인
+        </button>
+        <button class="btn-social btn-naver" onclick="loginNaver()">
+          네이버 로그인
+        </button>
+
+        <p class="login-info">가입 즉시 15일 무료 체험!</p>
       </div>
     </div>
 
-    <!-- 탭 네비게이션 -->
-    <nav class="tabs">
-      <button class="tab active" data-tab="register">주문 등록</button>
-      <button class="tab" data-tab="history">발송 내역</button>
-      <button class="tab" data-tab="settings">설정</button>
-    </nav>
+    <!-- 메인 대시보드 (로그인 후) -->
+    <div id="main-page" class="hidden">
+      <header>
+        <h1>리뷰집사</h1>
+        <div class="user-bar">
+          <span id="user-name"></span>
+          <button class="btn-logout" onclick="logout()">로그아웃</button>
+        </div>
+      </header>
 
-    <!-- 주문 등록 탭 -->
-    <section id="tab-register" class="tab-content active">
-      <div class="card">
-        <h2>고객 번호 등록</h2>
-        <p class="hint">배달의민족 주문 고객 번호를 입력하세요</p>
-        <form id="order-form">
-          <input
-            type="tel"
-            id="phone-input"
-            placeholder="010-1234-5678 또는 050-xxxx-xxxx"
-            autocomplete="off"
-            required
-          >
-          <button type="submit" class="btn-primary">
-            문자 예약
-          </button>
-        </form>
-        <div id="register-result" class="result hidden"></div>
+      <!-- 무료 체험 기간 -->
+      <div class="trial-bar" id="trial-bar">
+        <span id="trial-text"></span>
       </div>
 
-      <!-- 최근 등록 -->
-      <div class="card">
-        <h2>최근 등록</h2>
-        <div id="recent-list" class="message-list">
-          <p class="empty">등록된 내역이 없습니다</p>
+      <!-- 핸드폰 연결 상태 -->
+      <div class="phone-status" id="phone-status">
+        <span class="status-dot disconnected"></span>
+        <span id="phone-status-text">핸드폰 앱 연결 대기중...</span>
+      </div>
+
+      <!-- 오늘 통계 -->
+      <div class="stats-bar">
+        <div class="stat">
+          <span class="stat-num" id="stat-total">0</span>
+          <span class="stat-label">오늘 등록</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num" id="stat-pending">0</span>
+          <span class="stat-label">대기중</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num sent" id="stat-sent">0</span>
+          <span class="stat-label">발송완료</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num failed" id="stat-failed">0</span>
+          <span class="stat-label">실패</span>
         </div>
       </div>
-    </section>
 
-    <!-- 발송 내역 탭 -->
-    <section id="tab-history" class="tab-content">
-      <div class="card">
-        <h2>발송 내역</h2>
-        <div id="history-list" class="message-list">
-          <p class="empty">내역이 없습니다</p>
+      <!-- 탭 -->
+      <nav class="tabs">
+        <button class="tab active" data-tab="register">주문 등록</button>
+        <button class="tab" data-tab="history">발송 내역</button>
+        <button class="tab" data-tab="settings">설정</button>
+      </nav>
+
+      <!-- 주문 등록 -->
+      <section id="tab-register" class="tab-content active">
+        <div class="card">
+          <h2>고객 번호 등록</h2>
+          <p class="hint">배달의민족 주문 고객 번호를 입력하세요</p>
+          <form id="order-form">
+            <input type="tel" id="phone-input" placeholder="010-1234-5678 또는 050-xxxx-xxxx" autocomplete="off" required>
+            <button type="submit" class="btn-primary">문자 예약</button>
+          </form>
+          <div id="register-result" class="result hidden"></div>
         </div>
-      </div>
-    </section>
-
-    <!-- 설정 탭 -->
-    <section id="tab-settings" class="tab-content">
-      <div class="card">
-        <h2>문자 메시지 템플릿</h2>
-        <textarea id="template-input" rows="5" placeholder="고객에게 보낼 메시지를 작성하세요"></textarea>
-
-        <h2>발송 지연 시간</h2>
-        <div class="delay-input">
-          <input type="number" id="delay-input" min="1" max="1440" value="120">
-          <span>분 후 발송</span>
+        <div class="card">
+          <h2>최근 등록</h2>
+          <div id="recent-list" class="message-list">
+            <p class="empty">등록된 내역이 없습니다</p>
+          </div>
         </div>
+      </section>
 
-        <button id="save-settings" class="btn-primary">설정 저장</button>
-        <div id="settings-result" class="result hidden"></div>
+      <!-- 발송 내역 -->
+      <section id="tab-history" class="tab-content">
+        <div class="card">
+          <h2>발송 내역</h2>
+          <div id="history-list" class="message-list">
+            <p class="empty">내역이 없습니다</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 설정 -->
+      <section id="tab-settings" class="tab-content">
+        <div class="card">
+          <h2>문자 메시지 템플릿</h2>
+          <textarea id="template-input" rows="5" placeholder="고객에게 보낼 메시지를 작성하세요"></textarea>
+          <h2>발송 지연 시간</h2>
+          <div class="delay-input">
+            <input type="number" id="delay-input" min="1" max="1440" value="120">
+            <span>분 후 발송</span>
+          </div>
+          <button id="save-settings" class="btn-primary">설정 저장</button>
+          <div id="settings-result" class="result hidden"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 체험 만료 화면 -->
+    <div id="expired-page" class="hidden">
+      <header>
+        <h1>리뷰집사</h1>
+      </header>
+      <div class="card">
+        <h2>무료 체험 기간 만료</h2>
+        <p>15일 무료 체험 기간이 종료되었습니다.</p>
+        <p>계속 사용하시려면 유료 구독을 신청해주세요.</p>
+        <button class="btn-primary" onclick="alert('결제 기능은 준비 중입니다.')">구독 신청하기</button>
+        <button class="btn-logout" onclick="logout()" style="margin-top:12px;width:100%">로그아웃</button>
       </div>
-    </section>
+    </div>
+
   </div>
 
   <script src="app.js"></script>

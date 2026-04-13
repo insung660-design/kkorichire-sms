@@ -1,36 +1,164 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 const {
-  db, scheduleMessage, markSent, markFailed,
+  db, findOrCreateUser, getUserById, isTrialActive,
+  scheduleMessage, markSent, markFailed,
   getPendingMessages, getMessages, deleteMessage,
-  getSetting, setSetting, getTodayStats
+  getUserSetting, setUserSetting, getSetting, setSetting, getTodayStats
 } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'reviewjipsa-secret-key-change-this';
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ─── API: 주문 접수 (문자 예약) ───
-app.post('/api/order', (req, res) => {
-  const { phone } = req.body;
+// ═══════════════════════════════════════
+//  JWT 토큰 생성/검증
+// ═══════════════════════════════════════
 
-  if (!phone) {
-    return res.status(400).json({ error: '전화번호를 입력해주세요' });
+function generateToken(user) {
+  return jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
+}
+
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: '로그인이 필요합니다' });
   }
 
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = getUserById(decoded.id);
+    if (!user) return res.status(401).json({ error: '사용자를 찾을 수 없습니다' });
+    req.user = user;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: '토큰이 만료되었습니다. 다시 로그인해주세요' });
+  }
+}
+
+function trialMiddleware(req, res, next) {
+  if (!isTrialActive(req.user)) {
+    return res.status(403).json({ error: '무료 체험 기간이 만료되었습니다', expired: true });
+  }
+  next();
+}
+
+// ═══════════════════════════════════════
+//  소셜 로그인 API
+// ═══════════════════════════════════════
+
+// 구글 로그인 콜백
+app.post('/auth/google', async (req, res) => {
+  try {
+    const { token: googleToken } = req.body;
+    // 구글 토큰 검증
+    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${googleToken}`);
+    const data = await response.json();
+
+    if (!data.email) return res.status(400).json({ error: '구글 인증 실패' });
+
+    const user = findOrCreateUser(data.email, data.name || data.email, 'google', data.sub);
+    const jwtToken = generateToken(user);
+
+    res.json({
+      success: true,
+      token: jwtToken,
+      user: { id: user.id, email: user.email, name: user.name, trial_expires_at: user.trial_expires_at }
+    });
+  } catch (err) {
+    res.status(500).json({ error: '로그인 처리 중 오류' });
+  }
+});
+
+// 카카오 로그인 콜백
+app.post('/auth/kakao', async (req, res) => {
+  try {
+    const { access_token } = req.body;
+    const response = await fetch('https://kapi.kakao.com/v2/user/me', {
+      headers: { 'Authorization': `Bearer ${access_token}` }
+    });
+    const data = await response.json();
+
+    const email = data.kakao_account?.email || `kakao_${data.id}@kakao.com`;
+    const name = data.kakao_account?.profile?.nickname || '카카오 사용자';
+
+    const user = findOrCreateUser(email, name, 'kakao', String(data.id));
+    const jwtToken = generateToken(user);
+
+    res.json({
+      success: true,
+      token: jwtToken,
+      user: { id: user.id, email: user.email, name: user.name, trial_expires_at: user.trial_expires_at }
+    });
+  } catch (err) {
+    res.status(500).json({ error: '카카오 로그인 실패' });
+  }
+});
+
+// 네이버 로그인 콜백
+app.post('/auth/naver', async (req, res) => {
+  try {
+    const { access_token } = req.body;
+    const response = await fetch('https://openapi.naver.com/v1/nid/me', {
+      headers: { 'Authorization': `Bearer ${access_token}` }
+    });
+    const data = await response.json();
+
+    if (data.resultcode !== '00') return res.status(400).json({ error: '네이버 인증 실패' });
+
+    const email = data.response.email || `naver_${data.response.id}@naver.com`;
+    const name = data.response.name || data.response.nickname || '네이버 사용자';
+
+    const user = findOrCreateUser(email, name, 'naver', data.response.id);
+    const jwtToken = generateToken(user);
+
+    res.json({
+      success: true,
+      token: jwtToken,
+      user: { id: user.id, email: user.email, name: user.name, trial_expires_at: user.trial_expires_at }
+    });
+  } catch (err) {
+    res.status(500).json({ error: '네이버 로그인 실패' });
+  }
+});
+
+// 토큰으로 내 정보 조회
+app.get('/auth/me', authMiddleware, (req, res) => {
+  const user = req.user;
+  res.json({
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    provider: user.provider,
+    trial_expires_at: user.trial_expires_at,
+    trial_active: isTrialActive(user)
+  });
+});
+
+// ═══════════════════════════════════════
+//  인증 필요 API
+// ═══════════════════════════════════════
+
+// 주문 접수
+app.post('/api/order', authMiddleware, trialMiddleware, (req, res) => {
+  const { phone } = req.body;
+  if (!phone) return res.status(400).json({ error: '전화번호를 입력해주세요' });
+
   const cleanPhone = phone.replace(/[^0-9]/g, '');
-  const template = getSetting('message_template') || '감사합니다!';
-  const delayMinutes = parseInt(getSetting('delay_minutes') || '120', 10);
+  const template = getUserSetting(req.user.id, 'message_template') || '감사합니다! 리뷰 부탁드립니다.';
+  const delayMinutes = parseInt(getUserSetting(req.user.id, 'delay_minutes') || '120', 10);
 
   const scheduledAt = new Date(Date.now() + delayMinutes * 60 * 1000);
   const scheduledAtStr = scheduledAt.toISOString().replace('T', ' ').slice(0, 19);
 
-  const result = scheduleMessage(cleanPhone, template, scheduledAtStr);
-
-  console.log(`[예약] ${cleanPhone} → ${scheduledAtStr} (${delayMinutes}분 후)`);
+  const result = scheduleMessage(req.user.id, cleanPhone, template, scheduledAtStr);
+  console.log(`[예약] user:${req.user.id} ${cleanPhone} → ${scheduledAtStr}`);
 
   res.json({
     success: true,
@@ -40,64 +168,60 @@ app.post('/api/order', (req, res) => {
   });
 });
 
-// ─── API: 메시지 목록 ───
-app.get('/api/messages', (req, res) => {
+// 메시지 목록
+app.get('/api/messages', authMiddleware, (req, res) => {
   const limit = parseInt(req.query.limit || '50', 10);
   const offset = parseInt(req.query.offset || '0', 10);
-  res.json(getMessages(limit, offset));
+  res.json(getMessages(req.user.id, limit, offset));
 });
 
-// ─── API: 예약 취소 ───
-app.delete('/api/messages/:id', (req, res) => {
+// 예약 취소
+app.delete('/api/messages/:id', authMiddleware, (req, res) => {
   const id = parseInt(req.params.id, 10);
-  const result = deleteMessage(id);
+  const result = deleteMessage(id, req.user.id);
   if (result.changes > 0) {
-    console.log(`[취소] 메시지 #${id}`);
     res.json({ success: true });
   } else {
     res.status(404).json({ error: '취소할 수 없는 메시지입니다' });
   }
 });
 
-// ─── API: 설정 ───
-app.get('/api/settings', (req, res) => {
+// 설정 조회
+app.get('/api/settings', authMiddleware, (req, res) => {
   res.json({
-    message_template: getSetting('message_template'),
-    delay_minutes: getSetting('delay_minutes')
+    message_template: getUserSetting(req.user.id, 'message_template'),
+    delay_minutes: getUserSetting(req.user.id, 'delay_minutes') || '120'
   });
 });
 
-app.put('/api/settings', (req, res) => {
+// 설정 저장
+app.put('/api/settings', authMiddleware, (req, res) => {
   const { message_template, delay_minutes } = req.body;
-  if (message_template !== undefined) setSetting('message_template', message_template);
-  if (delay_minutes !== undefined) setSetting('delay_minutes', String(delay_minutes));
+  if (message_template !== undefined) setUserSetting(req.user.id, 'message_template', message_template);
+  if (delay_minutes !== undefined) setUserSetting(req.user.id, 'delay_minutes', String(delay_minutes));
   res.json({ success: true });
 });
 
-// ─── API: 통계 ───
-app.get('/api/stats', (req, res) => {
-  res.json(getTodayStats());
+// 통계
+app.get('/api/stats', authMiddleware, (req, res) => {
+  res.json(getTodayStats(req.user.id));
 });
 
 // ═══════════════════════════════════════
-//  핸드폰 앱용 API
+//  핸드폰 앱용 API (토큰 인증)
 // ═══════════════════════════════════════
 
-// 핸드폰 앱이 발송할 메시지 가져가기
-// → 예약 시간이 지난 미발송 메시지 반환
-app.get('/api/phone/pending', (req, res) => {
-  const messages = getPendingMessages();
-  console.log(`[앱 조회] 대기 메시지 ${messages.length}건`);
+app.get('/api/phone/pending', authMiddleware, trialMiddleware, (req, res) => {
+  // 해당 사용자의 대기 메시지만 반환
+  const messages = db.prepare(
+    "SELECT * FROM messages WHERE user_id = ? AND sent = 0 AND scheduled_at <= datetime('now', 'localtime')"
+  ).all(req.user.id);
   res.json(messages);
 });
 
-// 핸드폰 앱이 발송 결과 보고
-app.post('/api/phone/report', (req, res) => {
+app.post('/api/phone/report', authMiddleware, (req, res) => {
   const { id, success, error } = req.body;
-
-  if (!id) {
-    return res.status(400).json({ error: 'id 필요' });
-  }
+  if (!id) return res.status(400).json({ error: 'id 필요' });
 
   if (success) {
     markSent(id);
@@ -106,25 +230,31 @@ app.post('/api/phone/report', (req, res) => {
     markFailed(id, error || '발송 실패');
     console.log(`[발송 실패] #${id}: ${error}`);
   }
-
   res.json({ success: true });
 });
 
-// 핸드폰 앱 연결 상태 확인 (heartbeat)
-let lastPhoneHeartbeat = null;
+let lastPhoneHeartbeat = {};
 
-app.post('/api/phone/heartbeat', (req, res) => {
-  lastPhoneHeartbeat = new Date();
-  console.log(`[앱 연결] ${lastPhoneHeartbeat.toLocaleTimeString()}`);
+app.post('/api/phone/heartbeat', authMiddleware, (req, res) => {
+  lastPhoneHeartbeat[req.user.id] = new Date();
   res.json({ success: true });
 });
 
-app.get('/api/phone/status', (req, res) => {
-  const connected = lastPhoneHeartbeat &&
-    (Date.now() - lastPhoneHeartbeat.getTime()) < 2 * 60 * 1000; // 2분 이내
+app.get('/api/phone/status', authMiddleware, (req, res) => {
+  const lastSeen = lastPhoneHeartbeat[req.user.id];
+  const connected = lastSeen && (Date.now() - lastSeen.getTime()) < 2 * 60 * 1000;
+  res.json({ connected, last_seen: lastSeen ? lastSeen.toISOString() : null });
+});
+
+// ═══════════════════════════════════════
+//  OAuth 설정 정보 제공 (앱/웹에서 사용)
+// ═══════════════════════════════════════
+
+app.get('/auth/config', (req, res) => {
   res.json({
-    connected,
-    last_seen: lastPhoneHeartbeat ? lastPhoneHeartbeat.toISOString() : null
+    google_client_id: process.env.GOOGLE_CLIENT_ID || '',
+    kakao_client_id: process.env.KAKAO_CLIENT_ID || '',
+    naver_client_id: process.env.NAVER_CLIENT_ID || ''
   });
 });
 
@@ -132,11 +262,10 @@ app.get('/api/phone/status', (req, res) => {
 app.listen(PORT, () => {
   console.log('');
   console.log('╔══════════════════════════════════════╗');
-  console.log('║   꼬리치레 자동 문자 발송 시스템     ║');
+  console.log('║   리뷰집사 - 자동 문자 발송 시스템   ║');
   console.log('╠══════════════════════════════════════╣');
   console.log(`║   http://localhost:${PORT}              ║`);
-  console.log('║   문자 발송: 핸드폰 앱 연동 방식     ║');
+  console.log('║   소셜 로그인 + 15일 무료 체험       ║');
   console.log('╚══════════════════════════════════════╝');
   console.log('');
-  console.log('핸드폰 앱을 실행하면 자동으로 문자가 발송됩니다.\n');
 });

@@ -72,9 +72,10 @@ class BaeminNotificationListener : NotificationListenerService() {
             try {
                 val prefs = getSharedPreferences(MainActivity.PREFS_NAME, MODE_PRIVATE)
                 val serverUrl = prefs.getString(MainActivity.KEY_SERVER_URL, "") ?: ""
+                val authToken = prefs.getString(LoginActivity.KEY_TOKEN, "") ?: ""
 
-                if (serverUrl.isEmpty()) {
-                    Log.w(TAG, "서버 URL 미설정")
+                if (serverUrl.isEmpty() || authToken.isEmpty()) {
+                    Log.w(TAG, "서버 URL 또는 토큰 미설정")
                     return@execute
                 }
 
@@ -84,6 +85,7 @@ class BaeminNotificationListener : NotificationListenerService() {
 
                 val request = Request.Builder()
                     .url("$serverUrl/api/order")
+                    .addHeader("Authorization", "Bearer $authToken")
                     .post(json.toString().toRequestBody("application/json".toMediaType()))
                     .build()
 
