@@ -20,17 +20,18 @@
         <h2>로그인</h2>
         <p class="hint">소셜 계정으로 간편 로그인하세요</p>
 
-        <button class="btn-social btn-google" onclick="loginGoogle()">
-          Google 로그인
-        </button>
         <button class="btn-social btn-kakao" onclick="loginKakao()">
           카카오 로그인
         </button>
         <button class="btn-social btn-naver" onclick="loginNaver()">
           네이버 로그인
         </button>
+        <button class="btn-social btn-google" onclick="loginGoogle()">
+          Google 로그인
+        </button>
 
         <p class="login-info">가입 즉시 15일 무료 체험!</p>
+        <p id="webview-warning" class="hint" style="display:none;color:#d32f2f;margin-top:12px;">카카오톡/네이버 등 앱 내 브라우저에서는 Google 로그인이 안 될 수 있습니다. 크롬에서 접속해주세요.</p>
       </div>
     </div>
 

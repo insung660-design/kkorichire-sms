@@ -31,17 +31,6 @@
             android:gravity="center"
             android:layout_marginBottom="48dp" />
 
-        <!-- 구글 로그인 -->
-        <Button
-            android:id="@+id/btnGoogle"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:text="Google 로그인"
-            android:textSize="15sp"
-            android:textColor="#333333"
-            android:backgroundTint="#FFFFFF"
-            android:layout_marginBottom="10dp" />
-
         <!-- 카카오 로그인 -->
         <Button
             android:id="@+id/btnKakao"
@@ -62,6 +51,17 @@
             android:textSize="15sp"
             android:textColor="#FFFFFF"
             android:backgroundTint="#03C75A"
+            android:layout_marginBottom="10dp" />
+
+        <!-- 구글 로그인 -->
+        <Button
+            android:id="@+id/btnGoogle"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="Google 로그인"
+            android:textSize="15sp"
+            android:textColor="#333333"
+            android:backgroundTint="#FFFFFF"
             android:layout_marginBottom="24dp" />
 
         <!-- 구분선 -->

@@ -101,6 +101,16 @@ async function checkAuth() {
   }
 }
 
+// ─── WebView 감지 ───
+function isWebView() {
+  const ua = navigator.userAgent || '';
+  return /KAKAOTALK|NAVER|Instagram|FB|Line|wv/i.test(ua);
+}
+if (isWebView()) {
+  const warn = document.getElementById('webview-warning');
+  if (warn) warn.style.display = 'block';
+}
+
 // ─── 소셜 로그인 (서버에서 처리) ───
 function loginGoogle() {
   window.location.href = '/auth/google/start?redirect=web';
