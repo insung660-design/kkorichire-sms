@@ -21,7 +21,8 @@ class BaeminNotificationListener : NotificationListenerService() {
             "com.baemin.ceo",              // 배민사장님
             "com.woowahan.ceo",            // 배민사장님 (구버전)
             "com.baemin.owner",            // 배민사장님 (다른 버전)
-            "com.woowahan.baemin.ceo"      // 배민사장님 (또 다른 버전)
+            "com.woowahan.baemin.ceo",     // 배민사장님 (또 다른 버전)
+            "com.woowahan.baeminorder"     // 배민사장님 (실제 사용 버전)
         )
 
         // 전화번호 패턴 (010, 050 등)
@@ -72,10 +73,9 @@ class BaeminNotificationListener : NotificationListenerService() {
             try {
                 val prefs = getSharedPreferences(MainActivity.PREFS_NAME, MODE_PRIVATE)
                 val serverUrl = prefs.getString(MainActivity.KEY_SERVER_URL, "") ?: ""
-                val authToken = prefs.getString(LoginActivity.KEY_TOKEN, "") ?: ""
 
-                if (serverUrl.isEmpty() || authToken.isEmpty()) {
-                    Log.w(TAG, "서버 URL 또는 토큰 미설정")
+                if (serverUrl.isEmpty()) {
+                    Log.w(TAG, "서버 URL 미설정")
                     return@execute
                 }
 
@@ -85,7 +85,6 @@ class BaeminNotificationListener : NotificationListenerService() {
 
                 val request = Request.Builder()
                     .url("$serverUrl/api/order")
-                    .addHeader("Authorization", "Bearer $authToken")
                     .post(json.toString().toRequestBody("application/json".toMediaType()))
                     .build()
 
