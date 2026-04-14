@@ -7,8 +7,10 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -19,6 +21,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
@@ -33,6 +37,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var stopButton: Button
     private lateinit var notificationSettingsButton: Button
     private lateinit var saveSettingsButton: Button
+    private lateinit var subscribeButton: Button
+    private lateinit var trialBar: LinearLayout
+    private lateinit var trialTitle: TextView
+    private lateinit var trialDaysLeft: TextView
+    private lateinit var trialExpireDate: TextView
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -59,13 +68,18 @@ class MainActivity : AppCompatActivity() {
         stopButton = findViewById(R.id.stopButton)
         notificationSettingsButton = findViewById(R.id.notificationSettingsButton)
         saveSettingsButton = findViewById(R.id.saveSettingsButton)
+        subscribeButton = findViewById(R.id.subscribeButton)
+        trialBar = findViewById(R.id.trialBar)
+        trialTitle = findViewById(R.id.trialTitle)
+        trialDaysLeft = findViewById(R.id.trialDaysLeft)
+        trialExpireDate = findViewById(R.id.trialExpireDate)
 
-        // 저장된 서버 URL 복원
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val savedUrl = prefs.getString(KEY_SERVER_URL, "")
-        if (!savedUrl.isNullOrEmpty()) {
-            serverUrlInput.setText(savedUrl)
-        }
+        // 서버 URL 자동 설정
+        serverUrlInput.setText(LoginActivity.SERVER_URL)
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putString(KEY_SERVER_URL, LoginActivity.SERVER_URL)
+            .apply()
 
         // 권한 요청
         requestPermissions()
@@ -74,9 +88,13 @@ class MainActivity : AppCompatActivity() {
         stopButton.setOnClickListener { stopService() }
         notificationSettingsButton.setOnClickListener { openNotificationSettings() }
         saveSettingsButton.setOnClickListener { saveSettings() }
+        subscribeButton.setOnClickListener {
+            Toast.makeText(this, "구독 결제 기능은 준비 중입니다.", Toast.LENGTH_LONG).show()
+        }
 
         updateStatus()
         loadSettings()
+        checkTrialStatus()
     }
 
     private fun getAuthToken(): String {
@@ -84,13 +102,10 @@ class MainActivity : AppCompatActivity() {
             .getString(LoginActivity.KEY_TOKEN, "") ?: ""
     }
 
-    // 서버에서 설정 불러오기
-    private fun loadSettings() {
-        val serverUrl = serverUrlInput.text.toString().trim()
-        if (serverUrl.isEmpty()) return
-
+    // 체험 기간 확인
+    private fun checkTrialStatus() {
         val request = Request.Builder()
-            .url("$serverUrl/api/settings")
+            .url("${LoginActivity.SERVER_URL}/auth/me")
             .addHeader("Authorization", "Bearer ${getAuthToken()}")
             .build()
 
@@ -101,8 +116,64 @@ class MainActivity : AppCompatActivity() {
                 if (response.isSuccessful) {
                     val body = response.body?.string() ?: return
                     val json = JSONObject(body)
-                    val template = json.optString("message_template", "")
-                    val delay = json.optString("delay_minutes", "120")
+                    val trialActive = json.optBoolean("trial_active", false)
+                    val expiresAt = json.optString("trial_expires_at", "")
+
+                    runOnUiThread {
+                        if (!trialActive) {
+                            // 만료 → ExpiredActivity로 이동
+                            startActivity(Intent(this@MainActivity, ExpiredActivity::class.java))
+                            finish()
+                            return@runOnUiThread
+                        }
+
+                        // 남은 일수 계산
+                        if (expiresAt.isNotEmpty()) {
+                            try {
+                                val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.KOREA)
+                                val expireDate = sdf.parse(expiresAt)
+                                val now = Date()
+                                val daysLeft = ((expireDate!!.time - now.time) / (1000 * 60 * 60 * 24)).toInt() + 1
+
+                                trialDaysLeft.text = "${daysLeft}일 남음"
+
+                                val displaySdf = SimpleDateFormat("yyyy년 M월 d일", Locale.KOREA)
+                                trialExpireDate.text = "${displaySdf.format(expireDate)} 만료"
+
+                                if (daysLeft <= 3) {
+                                    trialTitle.text = "무료 체험 곧 만료!"
+                                    trialTitle.setTextColor(0xFFD32F2F.toInt())
+                                    trialDaysLeft.setTextColor(0xFFD32F2F.toInt())
+                                } else {
+                                    trialTitle.text = "무료 체험 중"
+                                    trialTitle.setTextColor(0xFF2D6A4F.toInt())
+                                    trialDaysLeft.setTextColor(0xFF2D6A4F.toInt())
+                                }
+                            } catch (e: Exception) {}
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    private fun loadSettings() {
+        val request = Request.Builder()
+            .url("${LoginActivity.SERVER_URL}/api/settings")
+            .addHeader("Authorization", "Bearer ${getAuthToken()}")
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {}
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    val body = response.body?.string() ?: return
+                    val json = JSONObject(body)
+                    var template = json.optString("message_template", "")
+                    var delay = json.optString("delay_minutes", "120")
+                    if (template == "null" || template.isEmpty()) template = ""
+                    if (delay == "null" || delay.isEmpty()) delay = "120"
 
                     runOnUiThread {
                         templateInput.setText(template)
@@ -113,14 +184,7 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    // 설정 서버에 저장
     private fun saveSettings() {
-        val serverUrl = serverUrlInput.text.toString().trim()
-        if (serverUrl.isEmpty()) {
-            Toast.makeText(this, "서버 주소를 먼저 입력해주세요", Toast.LENGTH_SHORT).show()
-            return
-        }
-
         val template = templateInput.text.toString()
         val delay = delayInput.text.toString().toIntOrNull() ?: 120
 
@@ -130,7 +194,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val request = Request.Builder()
-            .url("$serverUrl/api/settings")
+            .url("${LoginActivity.SERVER_URL}/api/settings")
             .addHeader("Authorization", "Bearer ${getAuthToken()}")
             .put(json.toString().toRequestBody("application/json".toMediaType()))
             .build()
@@ -187,13 +251,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startService() {
-        val serverUrl = serverUrlInput.text.toString().trim()
-
-        if (serverUrl.isEmpty()) {
-            Toast.makeText(this, "서버 주소를 입력해주세요", Toast.LENGTH_SHORT).show()
-            return
-        }
-
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS)
             != PackageManager.PERMISSION_GRANTED) {
             Toast.makeText(this, "SMS 권한이 필요합니다", Toast.LENGTH_SHORT).show()
@@ -207,14 +264,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // 서버 URL 저장
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            .edit()
-            .putString(KEY_SERVER_URL, serverUrl)
-            .apply()
-
         val intent = Intent(this, SmsService::class.java).apply {
-            putExtra("server_url", serverUrl)
+            putExtra("server_url", LoginActivity.SERVER_URL)
         }
         ContextCompat.startForegroundService(this, intent)
 
@@ -251,6 +302,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         updateStatus()
         loadSettings()
+        checkTrialStatus()
 
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         logText.text = prefs.getString("recent_log", "아직 발송 내역이 없습니다")
